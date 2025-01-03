@@ -1,0 +1,10 @@
+[package]
+name = "faeries"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+rand = "0.8.4"
+ugi = {path = "../ugi"}
+games = {path = "../games"}
+manual = {path = "../manual"}

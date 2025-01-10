@@ -1,0 +1,7 @@
+[package]
+name = "protocols"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+ugi = { git = "https://github.com/kz04px/ugi", version = "0.1.0" }

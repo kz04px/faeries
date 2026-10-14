@@ -1,0 +1,12 @@
+[package]
+name = "tunable"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+inventory = "0.3"
+tunable-macros = { path = "../tunable-macros" }
+
+[features]
+# Lets the integration tests build the run-time form of the tags
+tune = []

@@ -1,0 +1,15 @@
+[workspace]
+resolver = "2"
+members = [
+    "datagen",
+    "faeries",
+    "protocols",
+    "tunable",
+    "tunable-macros",
+]
+
+[profile.release]
+opt-level = 3
+codegen-units = 1
+lto = true
+strip = "debuginfo"

@@ -1,0 +1,8 @@
+[package]
+name = "faeries"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+protocols = {path = "../protocols"}
+games = { git = "https://github.com/kz04px/games", version = "0.1.0" }

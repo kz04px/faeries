@@ -33,9 +33,14 @@ const PST: [[i32; 6 * 6]; 3] = [
 #[must_use]
 pub fn eval(pos: &TakPosition<6>) -> i32 {
     let mut score = 0;
+    let on_board_us = (30 - pos.num_pieces[pos.turn]) + (1 - pos.num_caps[pos.turn]);
+    let on_board_them = (30 - pos.num_pieces[!pos.turn]) + (1 - pos.num_caps[!pos.turn]);
 
     // Stacks owned
     score += 100 * (pos.get_us().count() - pos.get_them().count());
+
+    // Total pieces on board
+    score += 10 * (on_board_us - on_board_them);
 
     // PST
     for piece in [PieceType::Flat, PieceType::Standing, PieceType::Cap] {

@@ -14,10 +14,15 @@ pub fn negamax(
     pos: &mut TakPosition<6>,
     depth: i32,
     ply_from_root: i32,
+    should_stop: &impl Fn(&SearchStats) -> bool,
     stats: &mut SearchStats,
     pv: &mut Vec<TakMove<6>>,
 ) -> i32 {
     debug_assert!(ply_from_root >= 0);
+
+    if should_stop(stats) {
+        return 0;
+    }
 
     stats.nodes += 1;
     stats.seldepth = max(stats.seldepth, ply_from_root);
@@ -43,7 +48,7 @@ pub fn negamax(
     for mv in pos.legal_moves() {
         pos.makemove(&mv);
         let mut next_pv = vec![];
-        let score = -negamax(pos, depth - 1, ply_from_root + 1, stats, &mut next_pv);
+        let score = -negamax(pos, depth - 1, ply_from_root + 1, should_stop, stats, &mut next_pv);
         pos.undomove(&mv);
 
         if score > best_score {

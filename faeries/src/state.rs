@@ -100,4 +100,4 @@ pub type DroptaxxState = GameState<DroptaxxPosition>;
 pub type GomokuState = GameState<GomokuPosition>;
 pub type IsolationState = GameState<IsolationPosition>;
 pub type PijersiState = GameState<PijersiPosition, NoSearch<PijersiPosition>, PijersiOptions>;
-pub type ManualTakState = GameState<TakPosition<6>>;
+pub type ManualTakState = GameState<TakPosition<6>, crate::primary::tak::TakPrimary>;

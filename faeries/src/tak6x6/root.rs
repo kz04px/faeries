@@ -1,6 +1,6 @@
-use super::search::negamax;
-use crate::search::SearchInfo;
+use super::search::alphabeta;
 use crate::searchstats::SearchStats;
+use crate::{search::SearchInfo, tak6x6::INF_SCORE};
 use games::{
     gamerules::GameRules,
     general::side::Side,
@@ -47,7 +47,16 @@ pub fn primary(
 
     for depth in 1..=max_depth {
         let mut pv = vec![];
-        let score = negamax(&mut pos, depth, 0, &should_stop, &mut stats, &mut pv);
+        let score = alphabeta(
+            &mut pos,
+            depth,
+            0,
+            -INF_SCORE,
+            INF_SCORE,
+            &should_stop,
+            &mut stats,
+            &mut pv,
+        );
 
         if depth > 1 && should_stop(&stats) {
             info_handler(

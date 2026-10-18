@@ -50,3 +50,25 @@ Pentanomial: Elo: 80.6 +/- 16.5, nElo: 154.2 +/- 30.4
 SPRT (trinomial, normalized): llr 5.805 (197.1%), lbound -2.94, ubound 2.94, elo [0, 10]
 SPRT (pentanomial, normalized): llr 4.684 (159.1%), lbound -2.94, ubound 2.94, elo [0, 10]
 ```
+
+---
+
+## Alpha-beta (fail-soft) vs negamax
+
+1000+10:
+```
+Score of Faeries New vs Faeries Old: 140 - 22 - 338 [0.618] 500
+Trinomial:   Elo: 83.6 +/- 16.7, nElo: 158.3 +/- 30.4
+Pentanomial: Elo: 83.6 +/- 16.6, nElo: 159.4 +/- 30.4
+SPRT (trinomial, normalized): llr 5.778 (196.3%), lbound -2.94, ubound 2.94, elo [0, 10]
+SPRT (pentanomial, normalized): llr 4.768 (161.9%), lbound -2.94, ubound 2.94, elo [0, 10]
+```
+
+10000+100:
+```
+Score of Faeries New vs Faeries Old: 141 - 29 - 330 [0.612] 500
+Trinomial:   Elo: 79.2 +/- 17.3, nElo: 144.6 +/- 30.4
+Pentanomial: Elo: 79.2 +/- 16.6, nElo: 150.4 +/- 30.4
+SPRT (trinomial, normalized): llr 5.336 (181.2%), lbound -2.94, ubound 2.94, elo [0, 10]
+SPRT (pentanomial, normalized): llr 4.642 (157.7%), lbound -2.94, ubound 2.94, elo [0, 10]
+```

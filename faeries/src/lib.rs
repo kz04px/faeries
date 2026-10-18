@@ -9,3 +9,5 @@ pub mod tei;
 pub mod ttperft;
 pub mod uci;
 pub mod ugi;
+// Games
+pub mod tak6x6;

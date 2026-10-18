@@ -9,6 +9,8 @@ mod state;
 mod tei;
 mod uci;
 mod ugi;
+// Games
+mod tak6x6;
 
 use args::parse_args;
 use faeries::ttperft;

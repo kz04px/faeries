@@ -84,7 +84,11 @@ impl MaybePrimary for DroptaxxPosition {}
 impl MaybePrimary for GomokuPosition {}
 impl MaybePrimary for IsolationPosition {}
 impl MaybePrimary for PijersiPosition {}
-impl<const SIZE: usize> MaybePrimary for TakPosition<SIZE> {}
+impl MaybePrimary for TakPosition<3> {}
+impl MaybePrimary for TakPosition<4> {}
+impl MaybePrimary for TakPosition<5> {}
+impl MaybePrimary for TakPosition<7> {}
+impl MaybePrimary for TakPosition<8> {}
 
 /// Settings a search can't run with.
 #[derive(Debug, PartialEq)]

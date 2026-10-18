@@ -1,8 +1,13 @@
+pub mod eval;
 pub mod root;
+pub mod search;
 
 use crate::search::Primary;
 use crate::search::SearchInfo;
 use games::tak::{TakMove, TakPosition};
+
+const INF_SCORE: i32 = 10_000_000;
+const MATE_SCORE: i32 = 1_000_000;
 
 impl Primary for TakPosition<6> {
     fn primary(

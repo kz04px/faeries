@@ -61,6 +61,7 @@ pub fn primary(
                 &mut stats,
                 state,
                 &mut pv,
+                true,
             )
         } else {
             alphabeta(
@@ -73,6 +74,7 @@ pub fn primary(
                 &mut stats,
                 state,
                 &mut pv,
+                true,
             )
         };
 

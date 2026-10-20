@@ -5,6 +5,7 @@ use crate::{
 };
 use games::{
     gamerules::{GameResult, GameRules},
+    general::side::Side,
     tak::{TakMove, TakPosition},
 };
 use std::cmp::max;
@@ -13,6 +14,15 @@ use std::cmp::max;
 pub struct TTEntry {
     pub key: u64,
     pub bestmove: Option<TakMove<6>>,
+}
+
+/// Stones placed so far; each side's first stone is placed as the opponent's.
+#[must_use]
+fn stones_played(pos: &TakPosition<6>) -> i32 {
+    62 - pos.num_pieces[Side::Player1]
+        - pos.num_pieces[Side::Player2]
+        - pos.num_caps[Side::Player1]
+        - pos.num_caps[Side::Player2]
 }
 
 #[must_use]
@@ -26,6 +36,7 @@ pub fn alphabeta(
     stats: &mut SearchStats,
     state: &mut TakState,
     pv: &mut Vec<TakMove<6>>,
+    allow_null: bool,
 ) -> i32 {
     debug_assert!(-INF_SCORE <= alpha);
     debug_assert!(alpha < beta);
@@ -53,6 +64,29 @@ pub fn alphabeta(
 
     if depth == 0 {
         return eval(pos);
+    }
+
+    // Null move pruning
+    if allow_null && depth >= 3 && ply_from_root > 0 && stones_played(pos) >= 2 && eval(pos) >= beta
+    {
+        pos.makenull();
+        let score = -alphabeta(
+            pos,
+            depth - 1 - 2,
+            ply_from_root + 1,
+            -beta,
+            -beta + 1,
+            should_stop,
+            stats,
+            state,
+            &mut vec![],
+            false,
+        );
+        pos.undonull();
+
+        if score >= beta {
+            return beta;
+        }
     }
 
     let key = hash(pos);
@@ -83,6 +117,7 @@ pub fn alphabeta(
             stats,
             state,
             &mut next_pv,
+            true,
         );
         pos.undomove(&mv);
 

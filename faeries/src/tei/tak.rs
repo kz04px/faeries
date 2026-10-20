@@ -32,7 +32,7 @@ pub struct TakPrimaries {
     pub size3: NoSearch<TakPosition<3>>,
     pub size4: NoSearch<TakPosition<4>>,
     pub size5: NoSearch<TakPosition<5>>,
-    pub size6: crate::primary::tak::TakPrimary,
+    pub size6: crate::primary::tak::TakState,
     pub size7: NoSearch<TakPosition<7>>,
     pub size8: NoSearch<TakPosition<8>>,
     initialised: [bool; 6],
@@ -133,7 +133,7 @@ impl Default for TEITakState {
                     NoSearch::<TakPosition<3>>::search_names(),
                     NoSearch::<TakPosition<4>>::search_names(),
                     NoSearch::<TakPosition<5>>::search_names(),
-                    crate::primary::tak::TakPrimary::search_names(),
+                    crate::primary::tak::TakState::search_names(),
                     NoSearch::<TakPosition<7>>::search_names(),
                     NoSearch::<TakPosition<8>>::search_names(),
                 ]

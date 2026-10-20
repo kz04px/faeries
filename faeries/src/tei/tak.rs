@@ -4,6 +4,7 @@ use crate::search::flatmc::flatmc;
 use crate::search::minimax::minimax;
 use crate::search::random::random;
 use crate::search::{MaybePrimary, eval::Eval};
+use crate::tak6x6::{DEFAULT_HASH_MB, TakState};
 use crate::ugi::{UgiGame, info_handler};
 use games::gamerules::GameRules;
 use games::perft;
@@ -11,7 +12,7 @@ use games::tak::TakMove;
 use games::tak::TakPosition;
 use protocols::GoSettings;
 use protocols::tei::TEI;
-use protocols::ugi::options::{Check, Combo};
+use protocols::ugi::options::{Check, Combo, Spin};
 
 pub enum TakPositions {
     Size3(TakPosition<3>),
@@ -25,9 +26,11 @@ pub enum TakPositions {
 pub struct TEITakState {
     pub pos: TakPositions,
     pub prng: prng::XorshiftGenerator,
+    pub primary: TakState,
     // Options
     pub debug: Check,
     pub search: Combo,
+    pub hash: Spin<usize>,
 }
 
 impl Default for TEITakState {
@@ -35,6 +38,7 @@ impl Default for TEITakState {
         Self {
             pos: TakPositions::Size6(TakPosition::startpos()),
             prng: prng::XorshiftGenerator::new(0xe50076937a9e5b1c),
+            primary: TakState::default(),
             // Options
             debug: Check {
                 name: "debug".to_owned(),
@@ -51,12 +55,19 @@ impl Default for TEITakState {
                     "flatmc".to_owned(),
                 ],
             },
+            hash: Spin {
+                name: "hash".to_owned(),
+                min: 1,
+                max: 65536,
+                value: DEFAULT_HASH_MB,
+            },
         }
     }
 }
 
 impl TEI for TEITakState {
     fn init(&mut self) {
+        self.primary.init();
         self.teinewgame(6, 0);
     }
 
@@ -84,6 +95,7 @@ impl TEI for TEITakState {
             8 => self.pos = TakPositions::Size8(TakPosition::<8>::startpos()),
             _ => panic!("Unsupported board size"),
         }
+        self.primary.newgame();
     }
 
     fn isready(&mut self) {
@@ -258,10 +270,7 @@ impl TEI for TEITakState {
             TakPositions::Size6(pos) => {
                 let eval = &TakPosition::<6>::eval;
                 let bestmove = match self.search.value.as_str() {
-                    "primary" => match pos.clone().maybe_primary(settings, &info_handler) {
-                        Some(bestmove) => Ok(bestmove),
-                        None => Ok(alphabeta(pos.clone(), settings, &info_handler, eval)),
-                    },
+                    "primary" => Ok(self.primary.search(pos.clone(), settings, &info_handler)),
                     "random" => Ok(random(&pos.clone(), || self.prng.next())),
                     "minimax" => Ok(minimax(pos.clone(), settings, &info_handler, eval)),
                     "alphabeta" => Ok(alphabeta(pos.clone(), settings, &info_handler, eval)),
@@ -362,6 +371,7 @@ impl TEI for TEITakState {
     fn print_options(&self) {
         println!("{}", self.debug);
         println!("{}", self.search);
+        println!("{}", self.hash);
     }
 
     fn set_option(&mut self, name: &str, value: &str) {
@@ -369,6 +379,12 @@ impl TEI for TEITakState {
             ("debug", "true") => self.debug.value = true,
             ("debug", "false") => self.debug.value = false,
             ("search", _) => self.search.value = value.to_owned(),
+            ("hash", _) => {
+                if let Ok(mb) = value.parse::<usize>() {
+                    self.hash.value = mb.clamp(self.hash.min, self.hash.max);
+                    self.primary.set_hash(self.hash.value);
+                }
+            }
             (_, _) => {}
         }
     }

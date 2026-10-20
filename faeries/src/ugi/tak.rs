@@ -1,5 +1,6 @@
 use crate::state::GameState;
-use crate::ugi::UgiGame;
+use crate::tak6x6::{DEFAULT_HASH_MB, TakState};
+use crate::ugi::{UgiGame, info_handler};
 use games::gamerules::GameRules;
 use games::tak::{Dir, TakMove, TakPosition};
 use protocols::ugi::options::Spin;
@@ -117,14 +118,17 @@ impl TakStates {
 
 pub struct UGITakState {
     pub state: TakStates,
+    pub primary: TakState,
     // Options
     pub size: Spin<i32>,
+    pub hash: Spin<usize>,
 }
 
 impl Default for UGITakState {
     fn default() -> Self {
         Self {
             state: TakStates::Size6(GameState::default()),
+            primary: TakState::default(),
             // Options
             size: Spin {
                 name: "size".to_owned(),
@@ -132,12 +136,19 @@ impl Default for UGITakState {
                 max: 8,
                 value: 6,
             },
+            hash: Spin {
+                name: "hash".to_owned(),
+                min: 1,
+                max: 65536,
+                value: DEFAULT_HASH_MB,
+            },
         }
     }
 }
 
 impl UGI for UGITakState {
     fn init(&mut self) {
+        self.primary.init();
         dispatch!(&mut self.state, state => state.init())
     }
 
@@ -154,6 +165,7 @@ impl UGI for UGITakState {
     }
 
     fn uginewgame(&mut self) {
+        self.primary.newgame();
         dispatch!(&mut self.state, state => state.uginewgame())
     }
 
@@ -170,6 +182,20 @@ impl UGI for UGITakState {
     }
 
     fn go(&mut self, settings: &GoSettings) {
+        // The 6x6 primary search keeps its state between searches
+        if let TakStates::Size6(state) = &self.state
+            && state.search.value == "primary"
+            && !state.pos.is_gameover()
+        {
+            let settings = &protocols::GoSettings::from(settings);
+            let info_handler = &info_handler::<TakPosition<6>>;
+            match self.primary.search(state.pos.clone(), settings, info_handler) {
+                Some(mv) => println!("bestmove {}", state.pos.as_ugi(&mv)),
+                None => println!("bestmove 0000"),
+            }
+            return;
+        }
+
         dispatch!(&mut self.state, state => state.go(settings))
     }
 
@@ -189,6 +215,7 @@ impl UGI for UGITakState {
         dispatch!(&self.state, state => {
             println!("{}", state.debug);
             println!("{}", self.size);
+            println!("{}", self.hash);
             println!("{}", state.search);
         })
     }
@@ -198,6 +225,11 @@ impl UGI for UGITakState {
             self.size.value = value.parse().unwrap();
             let old = std::mem::replace(&mut self.state, TakStates::Size3(GameState::default()));
             self.state = dispatch!(old, state => TakStates::resized(self.size.value, state));
+        } else if name == "hash" {
+            if let Ok(mb) = value.parse::<usize>() {
+                self.hash.value = mb.clamp(self.hash.min, self.hash.max);
+                self.primary.set_hash(self.hash.value);
+            }
         } else {
             dispatch!(&mut self.state, state => state.set_option(name, value))
         }

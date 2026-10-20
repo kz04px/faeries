@@ -1,3 +1,4 @@
+use super::TakState;
 use super::search::alphabeta;
 use crate::searchstats::SearchStats;
 use crate::{search::SearchInfo, tak6x6::INF_SCORE};
@@ -14,6 +15,7 @@ const MAX_DEPTH: i32 = 128;
 #[must_use]
 pub fn primary(
     mut pos: TakPosition<6>,
+    state: &mut TakState,
     settings: &GoSettings,
     info_handler: &impl Fn(&TakPosition<6>, &SearchInfo<TakMove<6>>),
 ) -> Option<TakMove<6>> {
@@ -55,6 +57,7 @@ pub fn primary(
             INF_SCORE,
             &should_stop,
             &mut stats,
+            state,
             &mut pv,
         );
 
@@ -80,6 +83,7 @@ pub fn primary(
                 score: Some(score),
                 nodes: Some(stats.nodes),
                 elapsed: Some(start.elapsed().as_millis()),
+                hashfull: Some(state.tt.hashfull()),
                 pv: &pv,
                 ..Default::default()
             },

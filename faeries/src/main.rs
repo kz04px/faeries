@@ -13,6 +13,7 @@ mod ugi;
 mod tak6x6;
 
 use args::parse_args;
+use faeries::hashtable;
 use faeries::ttperft;
 use games::Games;
 use games::chess::ChessPosition;

@@ -103,4 +103,4 @@ pub type GomokuState = GameState<GomokuPosition>;
 pub type IsolationState = GameState<IsolationPosition>;
 pub type PijersiState = GameState<PijersiPosition, NoSearch<PijersiPosition>, PijersiOptions>;
 pub type QuoridorState = GameState<QuoridorPosition>;
-pub type ManualTakState = GameState<TakPosition<6>, crate::primary::tak::TakPrimary>;
+pub type ManualTakState = GameState<TakPosition<6>, crate::primary::tak::TakState>;

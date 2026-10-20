@@ -59,6 +59,7 @@ pub fn primary(
             &mut stats,
             state,
             &mut pv,
+            true,
         );
 
         if depth > 1 && should_stop(&stats) {

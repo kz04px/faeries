@@ -5,7 +5,7 @@ use games::ataxx::{AtaxxMove, AtaxxPosition};
 use protocols::GoSettings;
 use std::time::Instant;
 
-const DEPTH: i32 = 1;
+const DEPTH: i32 = 2;
 
 #[must_use]
 pub fn primary(

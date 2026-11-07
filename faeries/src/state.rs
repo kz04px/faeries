@@ -93,7 +93,7 @@ impl<G: GameRules, S: GameSearch<Game = G>, X: ExtraOptions> Default for GameSta
     }
 }
 
-pub type AtaxxState = GameState<AtaxxPosition<7, 7>>;
+pub type AtaxxState = GameState<AtaxxPosition<7, 7>, crate::primary::ataxx::AtaxxPrimary>;
 pub type ChessState = GameState<ChessPosition>;
 pub type Connect4State = GameState<Connect4Position>;
 pub type DroptaxxState = GameState<DroptaxxPosition>;

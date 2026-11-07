@@ -1,6 +1,6 @@
-use super::search::negamax;
-use crate::search::SearchInfo;
+use super::search::alphabeta;
 use crate::searchstats::SearchStats;
+use crate::{primary::ataxx::INF_SCORE, search::SearchInfo};
 use games::{
     ataxx::{AtaxxMove, AtaxxPosition},
     gamerules::GameRules,
@@ -49,9 +49,27 @@ pub fn primary(
         let mut pv = vec![];
         // Depth 1 always finishes so there's a move to play
         let score = if depth == 1 {
-            negamax(&mut pos, depth, 0, &|_| false, &mut stats, &mut pv)
+            alphabeta(
+                &mut pos,
+                depth,
+                0,
+                -INF_SCORE,
+                INF_SCORE,
+                &|_| false,
+                &mut stats,
+                &mut pv,
+            )
         } else {
-            negamax(&mut pos, depth, 0, &should_stop, &mut stats, &mut pv)
+            alphabeta(
+                &mut pos,
+                depth,
+                0,
+                -INF_SCORE,
+                INF_SCORE,
+                &should_stop,
+                &mut stats,
+                &mut pv,
+            )
         };
 
         if depth > 1 && should_stop(&stats) {

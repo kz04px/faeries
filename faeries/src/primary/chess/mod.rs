@@ -1,4 +1,5 @@
 pub mod root;
+pub mod search;
 
 use super::GameSearch;
 use crate::search::SearchInfo;

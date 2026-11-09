@@ -1,4 +1,4 @@
-use super::search::rollout;
+use super::search::{rollout, select_best};
 use crate::prng::XorshiftGenerator;
 use crate::search::SearchInfo;
 use games::chess::{ChessMove, ChessPosition};
@@ -26,7 +26,6 @@ pub fn primary(
 
     let us = pos.get_turn();
     let num_moves = moves.len();
-    // Scores are in half-points: a win is 2, a draw is 1, a loss is 0.
     let mut scores = vec![0u32; num_moves];
     let mut games = vec![0u32; num_moves];
     let mut total_games: u64 = 0;
@@ -50,25 +49,24 @@ pub fn primary(
         false
     };
 
-    let mut idx = 0usize;
     loop {
         if should_stop(total_games) {
             break;
         }
 
-        let mv = moves[idx % num_moves];
+        let idx = select_best(&scores, &games);
+        let mv = moves[idx];
         let mut copy = pos.clone();
         copy.makemove(&mv);
 
         let result = rollout(&mut copy, &mut prng);
-        games[idx % num_moves] += 1;
-        scores[idx % num_moves] += match result {
+        games[idx] += 1;
+        scores[idx] += match result {
             Some(GameResult::Win(side)) if side == us => 2,
             Some(GameResult::Win(_)) => 0,
             _ => 1,
         };
 
-        idx = idx.wrapping_add(1);
         total_games += 1;
     }
 

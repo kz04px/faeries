@@ -30,3 +30,16 @@ SPRT (pentanomial, normalized): llr 23.499 (798.1%), lbound -2.94, ubound 2.94, 
 ```
 
 ---
+
+## Most-visited move selection vs Win-rate
+
+1000+10:
+```
+Score of Faeries New vs Faeries Old: 1241 - 777 - 1982 [0.558] 4000
+Trinomial:   Elo: 40.5 +/- 7.6, nElo: 57.5 +/- 10.8
+Pentanomial: Elo: 40.3 +/- 7.6, nElo: 57.8 +/- 10.8
+SPRT (trinomial, normalized): llr 17.155 (582.6%), lbound -2.94, ubound 2.94, elo [0, 10]
+SPRT (pentanomial, normalized): llr 17.044 (578.8%), lbound -2.94, ubound 2.94, elo [0, 10]
+```
+
+---

@@ -17,3 +17,16 @@ SPRT (pentanomial, normalized): llr 34.513 (1172.1%), lbound -2.94, ubound 2.94,
 ```
 
 ---
+
+## Win-rate node selection vs Flat MC
+
+1000+10:
+```
+Score of Faeries New vs Faeries Old: 1086 - 297 - 617 [0.697] 2000
+Trinomial:   Elo: 144.9 +/- 13.2, nElo: 187.2 +/- 15.2
+Pentanomial: Elo: 144.9 +/- 12.9, nElo: 190.8 +/- 15.2
+SPRT (trinomial, normalized): llr 26.499 (900.0%), lbound -2.94, ubound 2.94, elo [0, 10]
+SPRT (pentanomial, normalized): llr 23.499 (798.1%), lbound -2.94, ubound 2.94, elo [0, 10]
+```
+
+---

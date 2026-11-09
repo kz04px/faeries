@@ -79,13 +79,10 @@ pub fn primary(
         },
     );
 
-    // Pick the move with the highest score rate; break ties by most games played
+    // Pick the most visited move; break ties by score
     moves
         .iter()
         .enumerate()
-        .max_by_key(|(i, _)| {
-            let g = games[*i].max(1);
-            (scores[*i] * 1000 / g, games[*i])
-        })
+        .max_by_key(|(i, _)| (games[*i], scores[*i]))
         .map(|(_, mv)| *mv)
 }

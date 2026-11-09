@@ -1,3 +1,5 @@
+pub mod chess;
+
 use crate::search::SearchInfo;
 use games::gamerules::GameRules;
 use protocols::GoSettings;

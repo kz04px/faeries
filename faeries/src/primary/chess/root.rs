@@ -1,11 +1,11 @@
-use super::search::{Node, expand, rollout, select_child, validate_tree};
-use crate::prng::XorshiftGenerator;
+use super::eval::evaluate;
+use super::search::{Node, expand, select_child, validate_tree};
 use crate::search::SearchInfo;
 use games::chess::{ChessMove, ChessPosition};
-use games::gamerules::{GameResult, GameRules};
+use games::gamerules::GameRules;
 use games::general::side::Side;
 use protocols::GoSettings;
-use std::time::{Instant, SystemTime, UNIX_EPOCH};
+use std::time::Instant;
 
 #[must_use]
 pub fn primary(
@@ -13,12 +13,6 @@ pub fn primary(
     settings: &GoSettings,
     info_handler: &impl Fn(&ChessPosition, &SearchInfo<ChessMove>),
 ) -> Option<ChessMove> {
-    let seed = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap()
-        .as_nanos() as u64;
-    let mut prng = XorshiftGenerator::new(seed | 1);
-
     let moves = pos.legal_moves();
     if moves.is_empty() {
         return None;
@@ -66,7 +60,7 @@ pub fn primary(
         path.clear();
         path.push(idx);
 
-        // Descend until reaching an unvisited node or a leaf
+        // Descend until reaching an unvisited node or a leaf, then evaluate it
         loop {
             if !nodes[idx].expanded {
                 expand(&mut nodes, idx, &copy);
@@ -82,15 +76,16 @@ pub fn primary(
             }
         }
 
-        let result = rollout(&mut copy, &mut prng);
+        let to_move = copy.get_turn();
+        let value = evaluate(&copy);
 
         for &i in &path {
             let node = &mut nodes[i];
             node.visits += 1;
-            node.score += match result {
-                Some(GameResult::Win(side)) if side == node.mover => 1.0,
-                Some(GameResult::Win(_)) => 0.0,
-                _ => 0.5,
+            node.score += if node.mover == to_move {
+                value
+            } else {
+                1.0 - value
             };
         }
 

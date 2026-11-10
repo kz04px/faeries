@@ -31,6 +31,8 @@ impl Hasher for KeyHasher {
 /// The search results for one legal move from a position.
 pub struct Edge {
     pub mv: ChessMove,
+    // How promising the move looks before any search, as a probability among the position's moves
+    pub prior: f32,
     pub visits: u32,
     // Total result for the side playing `mv`: a win is 1, a draw is 0.5, a loss is 0
     pub score: f64,

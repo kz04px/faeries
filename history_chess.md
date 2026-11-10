@@ -109,3 +109,25 @@ SPRT (pentanomial, normalized): llr 3.859 (131.1%), lbound -2.94, ubound 2.94, e
 ```
 
 ---
+
+## PUCT vs LRU position cache
+
+1000+10:
+```
+Score of Faeries New vs Faeries Old: 1290 - 213 - 967 [0.718] 2470
+Trinomial:   Elo: 162.4 +/- 10.9, nElo: 234.2 +/- 13.7
+Pentanomial: Elo: 162.3 +/- 10.2, nElo: 250.3 +/- 13.7
+SPRT (trinomial, normalized): llr 38.764 (1316.5%), lbound -2.94, ubound 2.94, elo [0, 10]
+SPRT (pentanomial, normalized): llr 31.876 (1082.6%), lbound -2.94, ubound 2.94, elo [0, 10]
+```
+
+10000+100:
+```
+Score of Faeries New vs Faeries Old: 156 - 18 - 126 [0.730] 300
+Trinomial:   Elo: 172.8 +/- 30.3, nElo: 263.3 +/- 39.3
+Pentanomial: Elo: 172.5 +/- 28.5, nElo: 281.7 +/- 39.5
+SPRT (trinomial, normalized): llr 5.099 (173.2%), lbound -2.94, ubound 2.94, elo [0, 10]
+SPRT (pentanomial, normalized): llr 3.971 (134.9%), lbound -2.94, ubound 2.94, elo [0, 10]
+```
+
+---

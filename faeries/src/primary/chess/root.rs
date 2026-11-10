@@ -1,4 +1,4 @@
-use super::search::{rollout, select_best};
+use super::search::{Node, expand, rollout, select_child, validate_tree};
 use crate::prng::XorshiftGenerator;
 use crate::search::SearchInfo;
 use games::chess::{ChessMove, ChessPosition};
@@ -25,10 +25,17 @@ pub fn primary(
     }
 
     let us = pos.get_turn();
-    let num_moves = moves.len();
-    let mut scores = vec![0u32; num_moves];
-    let mut games = vec![0u32; num_moves];
+    let mut nodes = vec![Node {
+        mv: ChessMove::default(),
+        mover: us,
+        first_child: 0,
+        num_children: 0,
+        expanded: false,
+        visits: 0,
+        score: 0.0,
+    }];
     let mut total_games: u64 = 0;
+    let mut path: Vec<usize> = Vec::new();
 
     let start = Instant::now();
     let should_stop = |total: u64| -> bool {
@@ -54,18 +61,38 @@ pub fn primary(
             break;
         }
 
-        let idx = select_best(&scores, &games);
-        let mv = moves[idx];
         let mut copy = pos.clone();
-        copy.makemove(&mv);
+        let mut idx = 0;
+        path.clear();
+        path.push(idx);
+
+        // Descend until reaching an unvisited node or a leaf
+        loop {
+            if !nodes[idx].expanded {
+                expand(&mut nodes, idx, &copy);
+            }
+            if nodes[idx].num_children == 0 {
+                break;
+            }
+            idx = select_child(&nodes, idx);
+            copy.makemove(&nodes[idx].mv);
+            path.push(idx);
+            if nodes[idx].visits == 0 {
+                break;
+            }
+        }
 
         let result = rollout(&mut copy, &mut prng);
-        games[idx] += 1;
-        scores[idx] += match result {
-            Some(GameResult::Win(side)) if side == us => 2,
-            Some(GameResult::Win(_)) => 0,
-            _ => 1,
-        };
+
+        for &i in &path {
+            let node = &mut nodes[i];
+            node.visits += 1;
+            node.score += match result {
+                Some(GameResult::Win(side)) if side == node.mover => 1.0,
+                Some(GameResult::Win(_)) => 0.0,
+                _ => 0.5,
+            };
+        }
 
         total_games += 1;
     }
@@ -79,10 +106,53 @@ pub fn primary(
         },
     );
 
-    // Pick the most visited move; break ties by score
-    moves
+    if cfg!(debug_assertions)
+        && let Err(error) = validate_tree(&nodes)
+    {
+        panic!("invalid search tree: {error}");
+    }
+
+    // Pick the most visited root move; break ties by score
+    let root = &nodes[0];
+    let first = root.first_child as usize;
+    nodes[first..first + root.num_children as usize]
         .iter()
-        .enumerate()
-        .max_by_key(|(i, _)| (games[*i], scores[*i]))
-        .map(|(_, mv)| *mv)
+        .max_by(|a, b| a.visits.cmp(&b.visits).then(a.score.total_cmp(&b.score)))
+        .map(|n| n.mv)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // Searching checks the tree itself when debug assertions are on
+    #[test]
+    fn searches_build_valid_trees() {
+        let fens = [
+            "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+            "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1",
+            "6k1/5ppp/8/8/8/8/8/R3K3 w Q - 0 1",
+            "4k3/8/8/8/8/8/4P3/4K3 w - - 0 1",
+            "4k3/8/8/8/8/8/8/R3K3 w - - 98 80",
+        ];
+        let settings = GoSettings {
+            nodes: Some(1000),
+            ..Default::default()
+        };
+        for fen in fens {
+            let pos = ChessPosition::from_fen(fen);
+            let mv = primary(pos, &settings, &|_, _| {});
+            assert!(mv.is_some(), "no move for {fen}");
+        }
+    }
+
+    #[test]
+    fn no_move_without_legal_moves() {
+        let pos = ChessPosition::from_fen("7k/5K2/6Q1/8/8/8/8/8 b - - 0 1");
+        let settings = GoSettings {
+            nodes: Some(100),
+            ..Default::default()
+        };
+        assert_eq!(primary(pos, &settings, &|_, _| {}), None);
+    }
 }

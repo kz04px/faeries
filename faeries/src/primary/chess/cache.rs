@@ -31,6 +31,8 @@ impl Hasher for KeyHasher {
 /// The search results for one legal move from a position.
 pub struct Edge {
     pub mv: ChessMove,
+    // How promising the move looks before any search, as a probability among the position's moves
+    pub prior: f32,
     pub visits: u32,
     // Total result for the side playing `mv`: a win is 1, a draw is 0.5, a loss is 0
     pub score: f64,
@@ -85,8 +87,7 @@ impl Cache {
     }
 
     fn capacity_for(mb: usize) -> usize {
-        let per_entry =
-            size_of::<Slot>() + TYPICAL_MOVES * size_of::<Edge>() + MAP_BYTES_PER_ENTRY;
+        let per_entry = size_of::<Slot>() + TYPICAL_MOVES * size_of::<Edge>() + MAP_BYTES_PER_ENTRY;
         mb * 1024 * 1024 / per_entry
     }
 

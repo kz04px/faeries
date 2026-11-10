@@ -65,3 +65,25 @@ SPRT (pentanomial, normalized): llr 5.461 (185.5%), lbound -2.94, ubound 2.94, e
 ```
 
 ---
+
+## Material evaluation vs UCT
+
+1000+10:
+```
+Score of Faeries New vs Faeries Old: 486 - 0 - 14 [0.986] 500
+Trinomial:   Elo: 739.1 +/- 100.4, nElo: 2047.0 +/- 30.4
+Pentanomial: Elo: 739.1 +/- 107.6, nElo: 1935.9 +/- 30.4
+SPRT (trinomial, normalized): llr 13.981 (474.8%), lbound -2.94, ubound 2.94, elo [0, 10]
+SPRT (pentanomial, normalized): llr 9.824 (333.6%), lbound -2.94, ubound 2.94, elo [0, 10]
+```
+
+10000+100:
+```
+Score of Faeries New vs Faeries Old: 137 - 0 - 63 [0.842] 200
+Trinomial:   Elo: 291.3 +/- 42.6, nElo: 512.3 +/- 48.1
+Pentanomial: Elo: 290.4 +/- 42.1, nElo: 520.8 +/- 48.6
+SPRT (trinomial, normalized): llr 4.688 (159.2%), lbound -2.94, ubound 2.94, elo [0, 10]
+SPRT (pentanomial, normalized): llr 3.220 (109.3%), lbound -2.94, ubound 2.94, elo [0, 10]
+```
+
+---

@@ -1,9 +1,6 @@
-use crate::prng::XorshiftGenerator;
 use games::chess::{ChessMove, ChessPosition};
-use games::gamerules::{GameResult, GameRules};
+use games::gamerules::GameRules;
 use games::general::side::Side;
-
-pub const MAX_ROLLOUT_PLIES: i32 = 400;
 
 pub const EXPLORATION: f64 = 0.1;
 
@@ -15,7 +12,7 @@ pub struct Node {
     pub num_children: u32,
     pub expanded: bool,
     pub visits: u32,
-    // Total result for `mover`: a win is 1, a draw is 0.5, a loss is 0
+    // Total value for `mover`, each evaluation being from 0 (lost) to 1 (won)
     pub score: f64,
 }
 
@@ -63,12 +60,14 @@ pub fn select_child(nodes: &[Node], idx: usize) -> usize {
     best
 }
 
+pub const EPSILON: f64 = 1e-9;
+
 /// Checks the invariants of a search tree whose root is `nodes[0]`.
 ///
-/// Every iteration descends from the root and ends with one rollout. The root
-/// passes it to a child, but any other node counts the rollout that first
-/// visited it, so a node's visits are the sum of its children's, plus one unless it
-/// is the root. The same holds for score, with each child's result seen from the
+/// Every iteration descends from the root and ends with one evaluation. The root
+/// passes it to a child, but any other node counts the evaluation made when it was
+/// first visited, so a node's visits are the sum of its children's, plus one unless
+/// it is the root. The same holds for score, with each child's value seen from the
 /// other side.
 pub fn validate_tree(nodes: &[Node]) -> Result<(), String> {
     if nodes.is_empty() {
@@ -78,9 +77,10 @@ pub fn validate_tree(nodes: &[Node]) -> Result<(), String> {
     let mut has_parent = vec![false; nodes.len()];
     for (i, node) in nodes.iter().enumerate() {
         let visits = node.visits as f64;
-        if !(0.0..=visits).contains(&node.score) || (node.score * 2.0).fract() != 0.0 {
+        let slack = EPSILON * visits.max(1.0);
+        if !(-slack..=visits + slack).contains(&node.score) {
             return Err(format!(
-                "node {i}: score {} is not a multiple of 0.5 in [0, {}]",
+                "node {i}: score {} is outside [0, {}]",
                 node.score, node.visits
             ));
         }
@@ -140,16 +140,20 @@ pub fn validate_tree(nodes: &[Node]) -> Result<(), String> {
             child_losses += child.visits as f64 - child.score;
         }
 
-        let own_rollout = u64::from(i != 0);
-        if node.visits as u64 != child_visits + own_rollout {
+        let own_evaluation = u64::from(i != 0);
+        if node.visits as u64 != child_visits + own_evaluation {
             return Err(format!(
                 "node {i}: {} visits, but its children have {child_visits}{}",
                 node.visits,
-                if i == 0 { "" } else { " plus its own rollout" }
+                if i == 0 {
+                    ""
+                } else {
+                    " plus its own evaluation"
+                }
             ));
         }
         if i == 0 {
-            if node.score != child_score {
+            if (node.score - child_score).abs() > EPSILON * node.visits as f64 {
                 return Err(format!(
                     "root: score {}, but its children's scores sum to {child_score}",
                     node.score
@@ -157,9 +161,9 @@ pub fn validate_tree(nodes: &[Node]) -> Result<(), String> {
             }
         } else {
             let own_score = node.score - child_losses;
-            if ![0.0, 0.5, 1.0].contains(&own_score) {
+            if !(-EPSILON * visits..=1.0 + EPSILON * visits).contains(&own_score) {
                 return Err(format!(
-                    "node {i}: score {} leaves {own_score} for its own rollout",
+                    "node {i}: score {} leaves {own_score} for its own evaluation",
                     node.score
                 ));
             }
@@ -170,23 +174,6 @@ pub fn validate_tree(nodes: &[Node]) -> Result<(), String> {
         return Err(format!("node {i}: has no parent"));
     }
     Ok(())
-}
-
-#[must_use]
-pub fn rollout(pos: &mut ChessPosition, prng: &mut XorshiftGenerator) -> Option<GameResult> {
-    let mut moves = [ChessMove::default(); ChessPosition::MAX_LEGAL_MOVES];
-    for _ in 0..MAX_ROLLOUT_PLIES {
-        let count = pos.legal_moves_into(&mut moves);
-        if count == 0 {
-            return pos.get_result();
-        }
-        if pos.is_fifty_move() || pos.is_threefold() {
-            return Some(GameResult::Draw);
-        }
-        let mv = moves[prng.next() as usize % count];
-        pos.makemove(&mv);
-    }
-    pos.get_result()
 }
 
 #[cfg(test)]
@@ -222,10 +209,9 @@ mod tests {
 
     #[test]
     fn rejects_inconsistent_trees() {
-        let corruptions: [(&str, fn(&mut Vec<Node>)); 7] = [
+        let corruptions: [(&str, fn(&mut Vec<Node>)); 6] = [
             ("score above visits", |t| t[2].score = 1.5),
             ("negative score", |t| t[2].score = -0.5),
-            ("score off the half-point grid", |t| t[2].score = 0.3),
             ("root visits", |t| t[0].visits = 4),
             ("inner node visits", |t| t[1].visits = 3),
             ("root score", |t| t[0].score = 1.0),

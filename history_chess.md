@@ -153,3 +153,25 @@ SPRT (pentanomial, normalized): llr 4.374 (148.6%), lbound -2.94, ubound 2.94, e
 ```
 
 ---
+
+## Early stopping vs Quiescence search
+
+1000+10:
+```
+Score of Faeries New vs Faeries Old: 138 - 65 - 297 [0.573] 500
+Trinomial:   Elo: 51.1 +/- 19.3, nElo: 81.8 +/- 30.4
+Pentanomial: Elo: 52.0 +/- 17.0, nElo: 94.7 +/- 30.5
+SPRT (trinomial, normalized): llr 3.094 (105.1%), lbound -2.94, ubound 2.94, elo [0, 10]
+SPRT (pentanomial, normalized): llr 3.439 (116.8%), lbound -2.94, ubound 2.94, elo [0, 10]
+```
+
+10000+100:
+```
+Score of Faeries New vs Faeries Old: 230 - 148 - 622 [0.541] 1000
+Trinomial:   Elo: 28.6 +/- 13.2, nElo: 46.8 +/- 21.5
+Pentanomial: Elo: 28.6 +/- 11.5, nElo: 53.6 +/- 21.5
+SPRT (trinomial, normalized): llr 3.428 (116.4%), lbound -2.94, ubound 2.94, elo [0, 10]
+SPRT (pentanomial, normalized): llr 3.887 (132.0%), lbound -2.94, ubound 2.94, elo [0, 10]
+```
+
+---

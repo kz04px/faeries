@@ -1,4 +1,4 @@
-use super::cache::Cache;
+use super::cache::{Cache, Edge};
 use super::qsearch::score;
 use super::search::{new_entry, select_edge};
 use crate::search::SearchInfo;
@@ -7,6 +7,28 @@ use games::gamerules::GameRules;
 use games::general::side::Side;
 use protocols::GoSettings;
 use std::time::Instant;
+
+// How many simulations pass between checks for a decided search
+const DECIDED_CHECK_INTERVAL: u64 = 64;
+// Scales the estimate of how many simulations are left. Above 1 stops later.
+const REMAINING_MARGIN: f64 = 1.0;
+
+// Whether no other root move can end up more visited than the best one, even if it
+// receives every one of the `remaining` simulations.
+#[must_use]
+pub fn is_decided(edges: &[Edge], remaining: u64) -> bool {
+    let mut best = 0;
+    let mut second = 0;
+    for edge in edges {
+        if edge.visits > best {
+            second = best;
+            best = edge.visits;
+        } else if edge.visits > second {
+            second = edge.visits;
+        }
+    }
+    edges.len() < 2 || u64::from(best - second) > remaining
+}
 
 #[must_use]
 pub fn primary(
@@ -29,27 +51,53 @@ pub fn primary(
     // The cache slot, edge index and side to move at each step of the descent
     let mut path: Vec<(usize, usize, Side)> = Vec::new();
 
+    // How long the search may take, if it is limited by time
+    let our_time = if us == Side::Player1 {
+        settings.p1time
+    } else {
+        settings.p2time
+    };
+    let time_budget_ms: Option<u128> = if settings.nodes.is_some() {
+        None
+    } else if let Some(movetime) = settings.movetime {
+        Some(movetime as u128)
+    } else {
+        our_time.map(|time| (time / 30) as u128)
+    };
+
     let start = Instant::now();
     let should_stop = |total: u64| -> bool {
         if let Some(nodes) = settings.nodes {
             return total >= nodes;
         }
-        if let Some(movetime) = settings.movetime {
-            return start.elapsed().as_millis() >= movetime as u128;
-        }
-        let our_time = if us == Side::Player1 {
-            settings.p1time
-        } else {
-            settings.p2time
+        time_budget_ms.is_some_and(|budget| start.elapsed().as_millis() >= budget)
+    };
+
+    // Whether the time left is too short for any other move to catch the best one
+    let is_decided_in_time = |cache: &Cache, total: u64| -> bool {
+        let Some(budget) = time_budget_ms else {
+            return false;
         };
-        if let Some(time) = our_time {
-            return start.elapsed().as_millis() >= (time / 30) as u128;
+        let edges = &cache.entry(root).edges;
+        if edges.len() < 2 {
+            return true;
         }
-        false
+        let elapsed = start.elapsed().as_secs_f64();
+        if total == 0 || elapsed <= 0.0 {
+            return false;
+        }
+        let left = (budget as f64 / 1000.0 - elapsed).max(0.0);
+        let remaining = total as f64 / elapsed * left * REMAINING_MARGIN;
+        is_decided(edges, remaining as u64)
     };
 
     loop {
         if should_stop(total_games) {
+            break;
+        }
+        if total_games.is_multiple_of(DECIDED_CHECK_INTERVAL)
+            && is_decided_in_time(cache, total_games)
+        {
             break;
         }
 
@@ -160,6 +208,59 @@ mod tests {
         // The position after our move and a reply was reached during the search
         let slot = cache.get(pos.hash()).expect("the position was not cached");
         assert!(cache.entry(slot).visits > 0);
+    }
+
+    fn edge(visits: u32) -> Edge {
+        Edge {
+            mv: ChessMove::default(),
+            prior: 0.0,
+            visits,
+            score: 0.0,
+        }
+    }
+
+    #[test]
+    fn a_search_is_decided_when_the_lead_exceeds_the_simulations_left() {
+        let edges = [edge(100), edge(900), edge(300)];
+        assert!(is_decided(&edges, 599));
+        assert!(!is_decided(&edges, 600));
+        assert!(!is_decided(&edges, 5000));
+        // A single move has nothing to be overtaken by
+        assert!(is_decided(&[edge(0)], u64::MAX));
+        // Equal visits are never decided
+        assert!(!is_decided(&[edge(500), edge(500)], 0));
+    }
+
+    #[test]
+    fn a_forced_move_is_played_without_using_the_time() {
+        let pos = ChessPosition::from_fen("7k/5K2/8/8/8/8/8/8 b - - 0 1");
+        let settings = GoSettings {
+            movetime: Some(5000),
+            ..Default::default()
+        };
+        let start = Instant::now();
+        let mv = primary(
+            &mut Cache::with_megabytes(1),
+            pos.clone(),
+            &settings,
+            &|_, _| {},
+        );
+        assert!(start.elapsed().as_millis() < 1000);
+        assert_eq!(mv, Some(pos.parse_movestr("h8h7").unwrap()));
+    }
+
+    #[test]
+    fn a_node_limited_search_uses_every_node() {
+        let nodes = std::cell::Cell::new(0);
+        let settings = GoSettings {
+            nodes: Some(3000),
+            ..Default::default()
+        };
+        let pos = ChessPosition::from_fen("7k/5K2/8/8/8/8/8/8 b - - 0 1");
+        let _ = primary(&mut Cache::with_megabytes(1), pos, &settings, &|_, info| {
+            nodes.set(info.nodes.unwrap());
+        });
+        assert_eq!(nodes.get(), 3000);
     }
 
     #[test]

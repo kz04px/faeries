@@ -1,5 +1,5 @@
 use super::cache::Cache;
-use super::eval::evaluate;
+use super::qsearch::score;
 use super::search::{new_entry, select_edge};
 use crate::search::SearchInfo;
 use games::chess::{ChessMove, ChessPosition};
@@ -80,7 +80,7 @@ pub fn primary(
         }
 
         let to_move = copy.get_turn();
-        let value = evaluate(&copy);
+        let value = score(&copy);
 
         for &(slot, edge, mover) in &path {
             let entry = cache.entry_mut(slot);

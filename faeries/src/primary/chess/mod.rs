@@ -1,5 +1,6 @@
 pub mod cache;
 pub mod eval;
+pub mod qsearch;
 pub mod root;
 pub mod search;
 

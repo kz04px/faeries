@@ -10,28 +10,32 @@ pub const FPU_REDUCTION: f64 = 0.0;
 // Centipawns of move bonus that multiply a move's prior weight by e
 pub const PRIOR_SCALE: f32 = 300.0;
 
-// A rough guess, in centipawns, at how good a move is: captures of valuable pieces
-// by cheap ones and promotions score highest, quiet moves score zero.
-fn move_bonus(pos: &ChessPosition, mv: &ChessMove) -> f32 {
+// The piece a move captures, counting en passant.
+#[must_use]
+pub fn captured(pos: &ChessPosition, mv: &ChessMove) -> Option<ChessPiece> {
     let board = &pos.board;
-    let mover = board.piece_on_sq(mv.from);
-    let mut bonus = 0;
-
-    let victim = match (board.piece_on_sq(mv.to), mover) {
+    match (board.piece_on_sq(mv.to), board.piece_on_sq(mv.from)) {
         (Some(piece), _) => Some(piece),
         // A pawn changing file onto an empty square is en passant
         (None, Some(ChessPiece::Pawn)) if mv.from.get_file() != mv.to.get_file() => {
             Some(ChessPiece::Pawn)
         }
         _ => None,
-    };
-    if let (Some(victim), Some(mover)) = (victim, mover) {
+    }
+}
+
+// A rough guess, in centipawns, at how good a move is: captures of valuable pieces
+// by cheap ones and promotions score highest, quiet moves score zero.
+#[must_use]
+pub fn move_bonus(pos: &ChessPosition, mv: &ChessMove) -> i32 {
+    let mut bonus = 0;
+    if let (Some(victim), Some(mover)) = (captured(pos, mv), pos.board.piece_on_sq(mv.from)) {
         bonus += PIECE_VALUES[victim as usize] - PIECE_VALUES[mover as usize] / 10;
     }
     if let Some(promo) = mv.promo {
         bonus += PIECE_VALUES[promo as usize] - PIECE_VALUES[ChessPiece::Pawn as usize];
     }
-    bonus as f32
+    bonus
 }
 
 #[must_use]
@@ -39,7 +43,7 @@ pub fn new_entry(pos: &ChessPosition) -> Entry {
     let moves = pos.legal_moves();
     let weights: Vec<f32> = moves
         .iter()
-        .map(|mv| (move_bonus(pos, mv) / PRIOR_SCALE).exp())
+        .map(|mv| (move_bonus(pos, mv) as f32 / PRIOR_SCALE).exp())
         .collect();
     let total: f32 = weights.iter().sum();
 

@@ -131,3 +131,25 @@ SPRT (pentanomial, normalized): llr 3.971 (134.9%), lbound -2.94, ubound 2.94, e
 ```
 
 ---
+
+## Quiescence search vs PUCT
+
+1000+10:
+```
+Score of Faeries New vs Faeries Old: 314 - 139 - 477 [0.594] 930
+Trinomial:   Elo: 66.2 +/- 15.5, nElo: 97.3 +/- 22.3
+Pentanomial: Elo: 66.2 +/- 14.7, nElo: 102.9 +/- 22.3
+SPRT (trinomial, normalized): llr 6.839 (232.3%), lbound -2.94, ubound 2.94, elo [0, 10]
+SPRT (pentanomial, normalized): llr 6.886 (233.9%), lbound -2.94, ubound 2.94, elo [0, 10]
+```
+
+10000+100:
+```
+Score of Faeries New vs Faeries Old: 187 - 73 - 240 [0.614] 500
+Trinomial:   Elo: 80.6 +/- 22.0, nElo: 115.8 +/- 30.4
+Pentanomial: Elo: 79.8 +/- 19.5, nElo: 129.7 +/- 30.5
+SPRT (trinomial, normalized): llr 4.348 (147.7%), lbound -2.94, ubound 2.94, elo [0, 10]
+SPRT (pentanomial, normalized): llr 4.374 (148.6%), lbound -2.94, ubound 2.94, elo [0, 10]
+```
+
+---

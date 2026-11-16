@@ -1,4 +1,4 @@
-use super::search::alphabeta;
+use super::{AtaxxPrimary, search::alphabeta};
 use crate::searchstats::SearchStats;
 use crate::{primary::ataxx::INF_SCORE, search::SearchInfo};
 use games::{
@@ -14,6 +14,7 @@ const MAX_DEPTH: i32 = 128;
 #[must_use]
 pub fn primary(
     mut pos: AtaxxPosition<7, 7>,
+    state: &mut AtaxxPrimary,
     settings: &GoSettings,
     info_handler: &impl Fn(&AtaxxPosition<7, 7>, &SearchInfo<AtaxxMove<7, 7>>),
 ) -> Option<AtaxxMove<7, 7>> {
@@ -57,6 +58,7 @@ pub fn primary(
                 INF_SCORE,
                 &|_| false,
                 &mut stats,
+                state,
                 &mut pv,
             )
         } else {
@@ -68,6 +70,7 @@ pub fn primary(
                 INF_SCORE,
                 &should_stop,
                 &mut stats,
+                state,
                 &mut pv,
             )
         };
@@ -94,6 +97,7 @@ pub fn primary(
                 score: Some(score),
                 nodes: Some(stats.nodes),
                 elapsed: Some(start.elapsed().as_millis()),
+                hashfull: Some(state.tt.hashfull()),
                 pv: &pv,
                 ..Default::default()
             },

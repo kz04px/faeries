@@ -1,4 +1,4 @@
-use super::eval::eval;
+use super::{AtaxxPrimary, eval::eval};
 use crate::{
     primary::ataxx::{INF_SCORE, MATE_SCORE},
     searchstats::SearchStats,
@@ -9,6 +9,12 @@ use games::{
 };
 use std::cmp::max;
 
+#[derive(Clone, Copy, Default, PartialEq)]
+pub struct TTEntry {
+    pub key: u64,
+    pub bestmove: Option<AtaxxMove<7, 7>>,
+}
+
 #[must_use]
 pub fn alphabeta(
     pos: &mut AtaxxPosition<7, 7>,
@@ -18,6 +24,7 @@ pub fn alphabeta(
     beta: i32,
     should_stop: &impl Fn(&SearchStats) -> bool,
     stats: &mut SearchStats,
+    state: &mut AtaxxPrimary,
     pv: &mut Vec<AtaxxMove<7, 7>>,
 ) -> i32 {
     debug_assert!(-INF_SCORE <= alpha);
@@ -48,9 +55,22 @@ pub fn alphabeta(
         return eval(pos);
     }
 
-    let mut best_score = -INF_SCORE;
+    let key = pos.get_hash();
+    let mut moves = pos.legal_moves();
 
-    for mv in pos.legal_moves() {
+    // Search the hash move first
+    if let Some(entry) = state.tt.get(key)
+        && entry.key == key
+        && let Some(ttmove) = entry.bestmove
+        && let Some(idx) = moves.iter().position(|&mv| mv == ttmove)
+    {
+        moves[..=idx].rotate_right(1);
+    }
+
+    let mut best_score = -INF_SCORE;
+    let mut bestmove = None;
+
+    for mv in moves {
         pos.makemove(&mv);
         let mut next_pv = vec![];
         let score = -alphabeta(
@@ -61,12 +81,14 @@ pub fn alphabeta(
             -alpha,
             should_stop,
             stats,
+            state,
             &mut next_pv,
         );
         pos.undomove(&mv);
 
         if score > best_score {
             best_score = score;
+            bestmove = Some(mv);
 
             // Update PV
             *pv = vec![mv];
@@ -85,6 +107,9 @@ pub fn alphabeta(
     }
 
     debug_assert!(best_score > -INF_SCORE);
+    debug_assert!(bestmove.is_some());
+
+    state.tt.set(key, TTEntry { key, bestmove });
 
     best_score
 }

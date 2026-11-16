@@ -11,6 +11,7 @@ const PST: [i32; 49] = [
     30, 20, 10, 10, 10, 20, 30,
 ];
 
+const SURROUNDED_BONUS: i32 = 15;
 const HOLE_PENALTIES: [i32; 9] = [0, 0, 0, 0, -100, -200, -300, -400, -500];
 
 #[must_use]
@@ -31,6 +32,9 @@ fn eval_side(us: Bitboard<7, 7>, them: Bitboard<7, 7>, blockers: Bitboard<7, 7>)
         let neighbours = Bitboard::from_square(sq).adjacent() & us;
         score += HOLE_PENALTIES[neighbours.count() as usize];
     }
+
+    // Surrounded pieces
+    score += SURROUNDED_BONUS * (us & !empty.adjacent()).count();
 
     score
 }

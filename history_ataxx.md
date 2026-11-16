@@ -138,3 +138,25 @@ Pentanomial: Elo: 246.9 +/- 38.7, nElo: 283.2 +/- 32.1
 SPRT (trinomial, normalized): llr 7.845 (266.4%), lbound -2.94, ubound 2.94, elo [0, 10]
 SPRT (pentanomial, normalized): llr 6.693 (227.3%), lbound -2.94, ubound 2.94, elo [0, 10]
 ```
+
+---
+
+## Surrounded piece bonus vs hole penalties
+
+1000+10:
+```
+Score of Faeries New vs Faeries Old: 642 - 334 - 24 [0.654] 1000
+Trinomial:   Elo: 110.6 +/- 22.3, nElo: 114.0 +/- 21.5
+Pentanomial: Elo: 110.6 +/- 22.5, nElo: 113.0 +/- 21.5
+SPRT (trinomial, normalized): llr 8.558 (290.7%), lbound -2.94, ubound 2.94, elo [0, 10]
+SPRT (pentanomial, normalized): llr 8.100 (275.1%), lbound -2.94, ubound 2.94, elo [0, 10]
+```
+
+10000+100:
+```
+Score of Faeries New vs Faeries Old: 263 - 121 - 16 [0.678] 400
+Trinomial:   Elo: 129.0 +/- 35.7, nElo: 135.1 +/- 34.0
+Pentanomial: Elo: 129.0 +/- 36.2, nElo: 133.2 +/- 34.0
+SPRT (trinomial, normalized): llr 4.005 (136.0%), lbound -2.94, ubound 2.94, elo [0, 10]
+SPRT (pentanomial, normalized): llr 3.746 (127.2%), lbound -2.94, ubound 2.94, elo [0, 10]
+```

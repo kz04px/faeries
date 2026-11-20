@@ -1,4 +1,5 @@
 pub mod eval;
+pub mod order;
 pub mod root;
 pub mod search;
 

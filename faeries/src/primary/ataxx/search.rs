@@ -54,7 +54,7 @@ fn score_from_tt(score: i32, ply_from_root: i32) -> i32 {
 #[must_use]
 pub fn alphabeta(
     pos: &mut AtaxxPosition<7, 7>,
-    depth: i32,
+    mut depth: i32,
     ply_from_root: i32,
     mut alpha: i32,
     beta: i32,
@@ -73,6 +73,10 @@ pub fn alphabeta(
         return 0;
     }
 
+    if pos.get_empty().count() == 1 {
+        depth += 1;
+    }
+
     stats.nodes += 1;
     stats.seldepth = max(stats.seldepth, ply_from_root);
 
@@ -88,7 +92,7 @@ pub fn alphabeta(
         None => {}
     }
 
-    if depth <= 0 {
+    if depth <= 0 || ply_from_root >= MAX_PLY as i32 {
         return eval(pos);
     }
 

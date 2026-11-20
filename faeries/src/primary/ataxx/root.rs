@@ -24,6 +24,11 @@ pub fn primary(
     let mut stats = SearchStats::default();
     let max_depth = settings.depth.unwrap_or(MAX_DEPTH);
     let us = pos.get_turn();
+    let clock_budget = if us == Side::Player1 {
+        settings.p1time.map(|time| (time / 30) as u128)
+    } else {
+        settings.p2time.map(|time| (time / 30) as u128)
+    };
     let should_stop = |stats: &SearchStats| -> bool {
         if let Some(nodes) = settings.nodes {
             return stats.nodes > nodes;
@@ -33,21 +38,16 @@ pub fn primary(
             return start.elapsed().as_millis() >= movetime as u128;
         }
 
-        let our_time = if us == Side::Player1 {
-            settings.p1time
-        } else {
-            settings.p2time
-        };
-
-        if let Some(time) = our_time {
-            let to_use = time / 30;
-            return start.elapsed().as_millis() >= to_use as u128;
+        if let Some(budget) = clock_budget {
+            return start.elapsed().as_millis() >= budget;
         }
 
         false
     };
 
+    let mut previous_time: Option<f64> = None;
     for depth in 1..=max_depth {
+        let depth_start = Instant::now();
         let mut pv = vec![];
         // Depth 1 always finishes so there's a move to play
         let score = if depth == 1 {
@@ -103,6 +103,18 @@ pub fn primary(
                 ..Default::default()
             },
         );
+
+        // Predict if there's enough time left for the next depth to finish
+        let depth_time = depth_start.elapsed().as_secs_f64() * 1000.0;
+        if let Some(budget) = clock_budget {
+            let growth =
+                previous_time.map_or(2.0, |previous| (depth_time / previous).clamp(1.0, 6.0));
+            let predicted_end = start.elapsed().as_secs_f64() * 1000.0 + depth_time * growth;
+            if predicted_end >= budget as f64 {
+                break;
+            }
+        }
+        previous_time = Some(depth_time.max(f64::EPSILON));
     }
 
     bestmove

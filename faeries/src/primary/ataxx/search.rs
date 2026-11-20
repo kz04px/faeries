@@ -58,6 +58,13 @@ pub fn alphabeta(
     let key = pos.get_hash();
     let mut moves = pos.legal_moves();
 
+    // Search the killer move second
+    if let Some(killer) = state.killers[ply_from_root as usize]
+        && let Some(idx) = moves.iter().position(|&mv| mv == killer)
+    {
+        moves[..=idx].rotate_right(1);
+    }
+
     // Search the hash move first
     if let Some(entry) = state.tt.get(key)
         && entry.key == key
@@ -102,6 +109,7 @@ pub fn alphabeta(
         }
 
         if alpha >= beta {
+            state.killers[ply_from_root as usize] = Some(mv);
             break;
         }
     }

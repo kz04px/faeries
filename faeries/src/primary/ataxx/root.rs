@@ -1,4 +1,4 @@
-use super::{AtaxxPrimary, search::alphabeta};
+use super::{AtaxxPrimary, MAX_PLY, search::alphabeta};
 use crate::searchstats::SearchStats;
 use crate::{primary::ataxx::INF_SCORE, search::SearchInfo};
 use games::{
@@ -9,7 +9,7 @@ use games::{
 use protocols::GoSettings;
 use std::time::Instant;
 
-const MAX_DEPTH: i32 = 128;
+const MAX_DEPTH: i32 = MAX_PLY as i32;
 
 #[must_use]
 pub fn primary(
@@ -20,6 +20,7 @@ pub fn primary(
 ) -> Option<AtaxxMove<7, 7>> {
     let start = Instant::now();
     let mut bestmove = None;
+    state.killers = [None; MAX_PLY];
     let mut stats = SearchStats::default();
     let max_depth = settings.depth.unwrap_or(MAX_DEPTH);
     let us = pos.get_turn();

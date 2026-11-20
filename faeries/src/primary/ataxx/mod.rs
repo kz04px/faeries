@@ -11,10 +11,12 @@ use search::TTEntry;
 
 const INF_SCORE: i32 = 10_000_000;
 const MATE_SCORE: i32 = 1_000_000;
+pub const MAX_PLY: usize = 128;
 const DEFAULT_HASH_MB: usize = 64;
 
 pub struct AtaxxPrimary {
     pub tt: HashTable<TTEntry>,
+    pub killers: [Option<AtaxxMove<7, 7>>; MAX_PLY],
     pub hash: Spin<usize>,
 }
 
@@ -22,6 +24,7 @@ impl Default for AtaxxPrimary {
     fn default() -> Self {
         Self {
             tt: HashTable::new(0),
+            killers: [None; MAX_PLY],
             hash: Spin {
                 name: "hash".to_owned(),
                 min: 1,
@@ -41,6 +44,7 @@ impl GameSearch for AtaxxPrimary {
 
     fn newgame(&mut self) {
         self.tt.clear();
+        self.killers = [None; MAX_PLY];
     }
 
     fn print_options(&self) {

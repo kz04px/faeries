@@ -1,4 +1,4 @@
-use super::{AtaxxPrimary, eval::eval};
+use super::{AtaxxPrimary, eval::eval, order::MovePicker};
 use crate::{
     primary::ataxx::{INF_SCORE, MATE_SCORE, MAX_PLY},
     searchstats::SearchStats,
@@ -105,28 +105,17 @@ pub fn alphabeta(
         }
     }
 
-    let mut moves = pos.legal_moves();
-
-    // Search the killer move second
-    if let Some(killer) = state.killers[ply_from_root as usize]
-        && let Some(idx) = moves.iter().position(|&mv| mv == killer)
-    {
-        moves[..=idx].rotate_right(1);
-    }
-
-    // Search the hash move first
-    if let Some(entry) = tt_entry
-        && let Some(ttmove) = entry.bestmove
-        && let Some(idx) = moves.iter().position(|&mv| mv == ttmove)
-    {
-        moves[..=idx].rotate_right(1);
-    }
-
     let original_alpha = alpha;
     let mut best_score = -INF_SCORE;
     let mut bestmove = None;
 
-    for mv in moves {
+    let picker = MovePicker::new(
+        pos,
+        tt_entry.and_then(|entry| entry.bestmove),
+        state.killers[ply_from_root as usize],
+    );
+
+    for mv in picker {
         pos.makemove(&mv);
         let mut next_pv = vec![];
         let score = -alphabeta(

@@ -9,6 +9,9 @@ use games::{
 };
 use std::cmp::max;
 
+const NULL_MOVE_MIN_DEPTH: i32 = 3;
+const NULL_MOVE_REDUCTION: i32 = 2;
+
 #[derive(Clone, Copy, Default, PartialEq)]
 pub enum Bound {
     #[default]
@@ -59,6 +62,7 @@ pub fn alphabeta(
     stats: &mut SearchStats,
     state: &mut AtaxxPrimary,
     pv: &mut Vec<AtaxxMove<7, 7>>,
+    allow_null: bool,
 ) -> i32 {
     debug_assert!(-INF_SCORE <= alpha);
     debug_assert!(alpha < beta);
@@ -109,6 +113,35 @@ pub fn alphabeta(
     let mut best_score = -INF_SCORE;
     let mut bestmove = None;
 
+    let static_eval = eval(pos);
+
+    // Null move pruning
+    if allow_null
+        && depth >= NULL_MOVE_MIN_DEPTH
+        && beta.abs() < MATE_THRESHOLD
+        && pos.get_empty().count() > 4
+        && static_eval >= beta
+    {
+        pos.makenull();
+        let score = -alphabeta(
+            pos,
+            depth - 1 - NULL_MOVE_REDUCTION,
+            ply_from_root + 1,
+            -beta,
+            -beta + 1,
+            should_stop,
+            stats,
+            state,
+            &mut vec![],
+            false,
+        );
+        pos.undonull();
+
+        if score >= beta {
+            return score;
+        }
+    }
+
     let picker = MovePicker::new(
         pos,
         tt_entry.and_then(|entry| entry.bestmove),
@@ -128,6 +161,7 @@ pub fn alphabeta(
             stats,
             state,
             &mut next_pv,
+            true,
         );
         pos.undomove(&mv);
 

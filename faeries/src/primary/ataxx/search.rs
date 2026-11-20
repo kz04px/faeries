@@ -51,6 +51,8 @@ fn score_from_tt(score: i32, ply_from_root: i32) -> i32 {
     }
 }
 
+const FUTILITY_MARGINS: [i32; 4] = [800, 800, 1600, 1600];
+
 #[must_use]
 pub fn alphabeta(
     pos: &mut AtaxxPosition<7, 7>,
@@ -92,8 +94,10 @@ pub fn alphabeta(
         None => {}
     }
 
+    let static_eval = eval(pos);
+
     if depth <= 0 || ply_from_root >= MAX_PLY as i32 {
-        return eval(pos);
+        return static_eval;
     }
 
     let key = pos.get_hash();
@@ -117,7 +121,13 @@ pub fn alphabeta(
     let mut best_score = -INF_SCORE;
     let mut bestmove = None;
 
-    let static_eval = eval(pos);
+    // Futility pruning
+    if ply_from_root > 0
+        && (depth as usize) <= FUTILITY_MARGINS.len()
+        && static_eval + FUTILITY_MARGINS[depth as usize - 1] < alpha
+    {
+        return alpha;
+    }
 
     // Null move pruning
     if allow_null

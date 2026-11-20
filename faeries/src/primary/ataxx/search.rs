@@ -1,6 +1,6 @@
 use super::{AtaxxPrimary, eval::eval};
 use crate::{
-    primary::ataxx::{INF_SCORE, MATE_SCORE},
+    primary::ataxx::{INF_SCORE, MATE_SCORE, MAX_PLY},
     searchstats::SearchStats,
 };
 use games::{
@@ -10,9 +10,42 @@ use games::{
 use std::cmp::max;
 
 #[derive(Clone, Copy, Default, PartialEq)]
+pub enum Bound {
+    #[default]
+    Exact,
+    Lower,
+    Upper,
+}
+
+#[derive(Clone, Copy, Default, PartialEq)]
 pub struct TTEntry {
     pub key: u64,
     pub bestmove: Option<AtaxxMove<7, 7>>,
+    pub score: i32,
+    pub depth: u8,
+    pub bound: Bound,
+}
+
+const MATE_THRESHOLD: i32 = MATE_SCORE - MAX_PLY as i32;
+
+fn score_to_tt(score: i32, ply_from_root: i32) -> i32 {
+    if score >= MATE_THRESHOLD {
+        score + ply_from_root
+    } else if score <= -MATE_THRESHOLD {
+        score - ply_from_root
+    } else {
+        score
+    }
+}
+
+fn score_from_tt(score: i32, ply_from_root: i32) -> i32 {
+    if score >= MATE_THRESHOLD {
+        score - ply_from_root
+    } else if score <= -MATE_THRESHOLD {
+        score + ply_from_root
+    } else {
+        score
+    }
 }
 
 #[must_use]
@@ -56,6 +89,22 @@ pub fn alphabeta(
     }
 
     let key = pos.get_hash();
+    let tt_entry = state.tt.get(key).filter(|entry| entry.key == key);
+
+    // TT bounds pruning
+    if ply_from_root > 0
+        && let Some(entry) = tt_entry
+        && i32::from(entry.depth) >= depth
+    {
+        let score = score_from_tt(entry.score, ply_from_root);
+        match entry.bound {
+            Bound::Exact => return score,
+            Bound::Lower if score >= beta => return score,
+            Bound::Upper if score <= alpha => return score,
+            _ => {}
+        }
+    }
+
     let mut moves = pos.legal_moves();
 
     // Search the killer move second
@@ -66,14 +115,14 @@ pub fn alphabeta(
     }
 
     // Search the hash move first
-    if let Some(entry) = state.tt.get(key)
-        && entry.key == key
+    if let Some(entry) = tt_entry
         && let Some(ttmove) = entry.bestmove
         && let Some(idx) = moves.iter().position(|&mv| mv == ttmove)
     {
         moves[..=idx].rotate_right(1);
     }
 
+    let original_alpha = alpha;
     let mut best_score = -INF_SCORE;
     let mut bestmove = None;
 
@@ -117,7 +166,29 @@ pub fn alphabeta(
     debug_assert!(best_score > -INF_SCORE);
     debug_assert!(bestmove.is_some());
 
-    state.tt.set(key, TTEntry { key, bestmove });
+    // Don't store entries in the TT if the search is over
+    if should_stop(stats) {
+        return best_score;
+    }
+
+    let bound = if best_score >= beta {
+        Bound::Lower
+    } else if best_score <= original_alpha {
+        Bound::Upper
+    } else {
+        Bound::Exact
+    };
+
+    state.tt.set(
+        key,
+        TTEntry {
+            key,
+            bestmove,
+            score: score_to_tt(best_score, ply_from_root),
+            depth: depth as u8,
+            bound,
+        },
+    );
 
     best_score
 }

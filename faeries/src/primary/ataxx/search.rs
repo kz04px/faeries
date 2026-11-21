@@ -6,6 +6,7 @@ use crate::{
 use games::{
     ataxx::{AtaxxMove, AtaxxPosition},
     gamerules::{GameResult, GameRules},
+    general::bitboard::Bitboard,
 };
 use std::cmp::max;
 
@@ -52,6 +53,17 @@ fn score_from_tt(score: i32, ply_from_root: i32) -> i32 {
 }
 
 const FUTILITY_MARGINS: [i32; 4] = [800, 800, 1600, 1600];
+const LATE_MOVE_PRUNING_MOVES: usize = 15;
+
+/// Whether a move lands next to an enemy piece.
+fn is_capture(pos: &AtaxxPosition<7, 7>, mv: &AtaxxMove<7, 7>) -> bool {
+    match mv {
+        AtaxxMove::Pass => false,
+        AtaxxMove::Single(to) | AtaxxMove::Double(_, to) => {
+            !(Bitboard::from_square(*to).adjacent() & pos.get_them()).is_empty()
+        }
+    }
+}
 
 #[must_use]
 pub fn alphabeta(
@@ -166,6 +178,9 @@ pub fn alphabeta(
         state.killers[ply_from_root as usize],
     );
 
+    let has_captures =
+        !(pos.get_them().adjacent() & pos.get_empty() & pos.get_us().reach2()).is_empty();
+
     for (i, mv) in picker.enumerate() {
         pos.makemove(&mv);
         let mut next_pv = vec![];
@@ -221,6 +236,12 @@ pub fn alphabeta(
 
         if alpha >= beta {
             state.killers[ply_from_root as usize] = Some(mv);
+            break;
+        }
+
+        // Late move pruning: if captures exist, stop at the first quiet move searched
+        // after the move limit
+        if has_captures && i + 1 > LATE_MOVE_PRUNING_MOVES && !is_capture(pos, &mv) {
             break;
         }
     }

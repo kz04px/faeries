@@ -66,6 +66,15 @@ fn is_capture(pos: &AtaxxPosition<7, 7>, mv: &AtaxxMove<7, 7>) -> bool {
 }
 
 #[must_use]
+fn lmr_reduction(depth: i32, move_index: usize, is_pv: bool) -> i32 {
+    if is_pv || depth < 3 || move_index < 10 {
+        0
+    } else {
+        2
+    }
+}
+
+#[must_use]
 pub fn alphabeta(
     pos: &mut AtaxxPosition<7, 7>,
     mut depth: i32,
@@ -189,9 +198,11 @@ pub fn alphabeta(
         // searched with a null window, and only searched again if they beat alpha
         let mut score = -INF_SCORE;
         if i > 0 {
+            let reduction = lmr_reduction(depth, i, is_pv);
+
             score = -alphabeta(
                 pos,
-                depth - 1,
+                depth - 1 - reduction,
                 ply_from_root + 1,
                 -alpha - 1,
                 -alpha,
@@ -201,6 +212,23 @@ pub fn alphabeta(
                 &mut next_pv,
                 true,
             );
+
+            // A reduced move that beats alpha is searched again at full depth
+            if reduction > 0 && score > alpha {
+                next_pv.clear();
+                score = -alphabeta(
+                    pos,
+                    depth - 1,
+                    ply_from_root + 1,
+                    -alpha - 1,
+                    -alpha,
+                    should_stop,
+                    stats,
+                    state,
+                    &mut next_pv,
+                    true,
+                );
+            }
         }
         if i == 0 || (score > alpha && score < beta) {
             next_pv.clear();

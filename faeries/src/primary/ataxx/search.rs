@@ -97,7 +97,7 @@ pub fn alphabeta(
     let static_eval = eval(pos);
 
     if depth <= 0 || ply_from_root >= MAX_PLY as i32 {
-        return static_eval;
+        return static_eval + state.correction.get(pos);
     }
 
     let key = pos.get_hash();
@@ -215,6 +215,20 @@ pub fn alphabeta(
     } else {
         Bound::Exact
     };
+
+    // Update correction history
+    if best_score.abs() < MATE_THRESHOLD {
+        let useful = match bound {
+            Bound::Exact => true,
+            Bound::Lower => best_score > static_eval,
+            Bound::Upper => best_score < static_eval,
+        };
+        if useful {
+            state
+                .correction
+                .update(pos, best_score - static_eval, depth);
+        }
+    }
 
     state.tt.set(
         key,

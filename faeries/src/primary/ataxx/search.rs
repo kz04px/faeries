@@ -100,11 +100,14 @@ pub fn alphabeta(
         return static_eval + state.correction.get(pos);
     }
 
+    let is_pv = beta - alpha > 1;
+
     let key = pos.get_hash();
     let tt_entry = state.tt.get(key).filter(|entry| entry.key == key);
 
     // TT bounds pruning
-    if ply_from_root > 0
+    if !is_pv
+        && ply_from_root > 0
         && let Some(entry) = tt_entry
         && i32::from(entry.depth) >= depth
     {
@@ -122,7 +125,8 @@ pub fn alphabeta(
     let mut bestmove = None;
 
     // Futility pruning
-    if ply_from_root > 0
+    if !is_pv
+        && ply_from_root > 0
         && (depth as usize) <= FUTILITY_MARGINS.len()
         && static_eval + FUTILITY_MARGINS[depth as usize - 1] < alpha
     {
@@ -162,21 +166,42 @@ pub fn alphabeta(
         state.killers[ply_from_root as usize],
     );
 
-    for mv in picker {
+    for (i, mv) in picker.enumerate() {
         pos.makemove(&mv);
         let mut next_pv = vec![];
-        let score = -alphabeta(
-            pos,
-            depth - 1,
-            ply_from_root + 1,
-            -beta,
-            -alpha,
-            should_stop,
-            stats,
-            state,
-            &mut next_pv,
-            true,
-        );
+
+        // Principal variation search: the first move gets the full window. The rest are
+        // searched with a null window, and only searched again if they beat alpha
+        let mut score = -INF_SCORE;
+        if i > 0 {
+            score = -alphabeta(
+                pos,
+                depth - 1,
+                ply_from_root + 1,
+                -alpha - 1,
+                -alpha,
+                should_stop,
+                stats,
+                state,
+                &mut next_pv,
+                true,
+            );
+        }
+        if i == 0 || (score > alpha && score < beta) {
+            next_pv.clear();
+            score = -alphabeta(
+                pos,
+                depth - 1,
+                ply_from_root + 1,
+                -beta,
+                -alpha,
+                should_stop,
+                stats,
+                state,
+                &mut next_pv,
+                true,
+            );
+        }
         pos.undomove(&mv);
 
         if score > best_score {

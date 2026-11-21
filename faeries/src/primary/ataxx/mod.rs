@@ -17,6 +17,9 @@ const MATE_SCORE: i32 = 1_000_000;
 pub const MAX_PLY: usize = 128;
 const DEFAULT_HASH_MB: usize = 64;
 
+/// Tunables under this module path belong to this search
+const TUNABLE_PATH: &str = module_path!();
+
 pub struct AtaxxPrimary {
     pub tt: HashTable<TTEntry>,
     pub correction: CorrectionHistory,
@@ -55,11 +58,12 @@ impl GameSearch for AtaxxPrimary {
 
     fn print_options(&self) {
         println!("{}", self.hash);
+        tunable::print_options(TUNABLE_PATH);
     }
 
     fn set_option(&mut self, name: &str, value: &str) -> bool {
         if name != "hash" {
-            return false;
+            return tunable::set(TUNABLE_PATH, name, value);
         }
 
         if let Ok(mb) = value.parse::<usize>() {

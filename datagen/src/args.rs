@@ -3,6 +3,11 @@ use std::{env, fmt::Display, num::ParseIntError};
 
 pub struct Args {
     pub fens_path: String,
+    pub output_path: String,
+    pub search: Option<String>,
+    pub random_plies: usize,
+    pub max_plies: usize,
+    pub seed: u64,
     pub nodes: u64,
     pub threads: usize,
     pub num_games: usize,
@@ -26,6 +31,11 @@ impl Default for Args {
     fn default() -> Self {
         Self {
             fens_path: Default::default(),
+            output_path: Default::default(),
+            search: None,
+            random_plies: 0,
+            max_plies: 500,
+            seed: 0x9e3779b97f4a7c15,
             nodes: 5_000,
             threads: 1,
             num_games: 1_000,
@@ -72,6 +82,45 @@ pub fn parse(words: &[&str]) -> Result<Args, ArgsError> {
             (&"--fens", _) => {
                 return Err(ArgsError {
                     msg: "Missing fen path".to_string(),
+                });
+            }
+            // Output
+            (&"--output", Some(_)) => parsed.output_path = iter.next().unwrap().to_string(),
+            (&"--output", _) => {
+                return Err(ArgsError {
+                    msg: "Missing output path".to_string(),
+                });
+            }
+            // Search
+            (&"--search", Some(_)) => parsed.search = Some(iter.next().unwrap().to_string()),
+            (&"--search", _) => {
+                return Err(ArgsError {
+                    msg: "Missing search name".to_string(),
+                });
+            }
+            // Random plies
+            (&"--random-plies", Some(_)) => {
+                parsed.random_plies = iter.next().unwrap().parse::<usize>()?
+            }
+            (&"--random-plies", _) => {
+                return Err(ArgsError {
+                    msg: "Missing random ply count".to_string(),
+                });
+            }
+            // Max plies
+            (&"--max-plies", Some(_)) => {
+                parsed.max_plies = iter.next().unwrap().parse::<usize>()?
+            }
+            (&"--max-plies", _) => {
+                return Err(ArgsError {
+                    msg: "Missing max ply count".to_string(),
+                });
+            }
+            // Seed
+            (&"--seed", Some(_)) => parsed.seed = iter.next().unwrap().parse::<u64>()?,
+            (&"--seed", _) => {
+                return Err(ArgsError {
+                    msg: "Missing seed".to_string(),
                 });
             }
             // Game
@@ -139,6 +188,14 @@ pub fn parse(words: &[&str]) -> Result<Args, ArgsError> {
         Err(ArgsError {
             msg: "fen path must not be empty".to_string(),
         })
+    } else if parsed.output_path.is_empty() {
+        Err(ArgsError {
+            msg: "output path must not be empty".to_string(),
+        })
+    } else if parsed.max_plies < 1 {
+        Err(ArgsError {
+            msg: "max-plies must be >= 1".to_string(),
+        })
     } else if parsed.game.is_none() {
         Err(ArgsError {
             msg: "game must be specified".to_string(),
@@ -159,26 +216,41 @@ mod tests {
 
     #[test]
     fn example() {
-        let args =
-            parse_string("--fens path --game ataxx --nodes 1000 --games 5000 --threads 2").unwrap();
+        let args = parse_string(
+            "--fens path --output out --game ataxx --nodes 1000 --games 5000 --threads 2",
+        )
+        .unwrap();
         assert_eq!(args.fens_path, "path");
         assert_eq!(args.game, Some(Games::Ataxx));
         assert_eq!(args.nodes, 1000);
         assert_eq!(args.num_games, 5000);
         assert_eq!(args.threads, 2);
+        assert_eq!(args.output_path, "out");
+    }
+
+    #[test]
+    fn options() {
+        let args = parse_string(
+            "--fens path --output out --game ataxx --search random --random-plies 4 --max-plies 80 --seed 7",
+        )
+        .unwrap();
+        assert_eq!(args.search.as_deref(), Some("random"));
+        assert_eq!(args.random_plies, 4);
+        assert_eq!(args.max_plies, 80);
+        assert_eq!(args.seed, 7);
     }
 
     #[test]
     fn success() {
         let tests = [
-            "--fens path --game ataxx",
-            "--fens path --game chess",
-            "--fens path --game ataxx --verbose",
-            "--fens path --game ataxx --nodes 1",
-            "--fens path --game ataxx --nodes 100000",
-            "--fens path --game ataxx --threads 1",
-            "--fens path --game ataxx --threads 100000",
-            "--fens path --game ataxx --nodes 1000 --threads 2",
+            "--fens path --output out --game ataxx",
+            "--fens path --output out --game chess",
+            "--fens path --output out --game ataxx --verbose",
+            "--fens path --output out --game ataxx --nodes 1",
+            "--fens path --output out --game ataxx --nodes 100000",
+            "--fens path --output out --game ataxx --threads 1",
+            "--fens path --output out --game ataxx --threads 100000",
+            "--fens path --output out --game ataxx --nodes 1000 --threads 2",
         ];
 
         for line in tests {
@@ -196,21 +268,26 @@ mod tests {
             "--fens",
             "--game",
             "--fens path",
+            "--fens path --game ataxx",
+            "--output",
+            "--search",
+            "--seed x",
+            "--fens path --output out --game ataxx --max-plies 0",
             "--game ataxx",
             "--nodes",
             "--nodes 0",
             "--fens --game ataxx",
-            "--fens path --game",
-            "--fens path --game ataxx test",
-            "--fens path --game unknown",
-            "--fens path --game ataxx --nodes",
-            "--fens path --game ataxx --nodes 0",
-            "--fens path --game ataxx --nodes -1",
-            "--fens path --game ataxx --nodes test",
-            "--fens path --game ataxx --threads",
-            "--fens path --game ataxx --threads 0",
-            "--fens path --game ataxx --threads -1",
-            "--fens path --game ataxx --threads test",
+            "--fens path --output out --game",
+            "--fens path --output out --game ataxx test",
+            "--fens path --output out --game unknown",
+            "--fens path --output out --game ataxx --nodes",
+            "--fens path --output out --game ataxx --nodes 0",
+            "--fens path --output out --game ataxx --nodes -1",
+            "--fens path --output out --game ataxx --nodes test",
+            "--fens path --output out --game ataxx --threads",
+            "--fens path --output out --game ataxx --threads 0",
+            "--fens path --output out --game ataxx --threads -1",
+            "--fens path --output out --game ataxx --threads test",
             "   --fens   path    --game    ataxx   ",
         ];
 

@@ -1,6 +1,13 @@
-use games::gamerules::{GameResult, GameRules};
+use games::gamerules::GameResult;
 
-pub enum Event<G: GameRules> {
+/// A position the search scored during a game.
+pub struct Sample {
+    pub fen: String,
+    /// Centipawns from Player 1's point of view.
+    pub score: i32,
+}
+
+pub enum Event {
     ThreadStart {
         thread_id: usize,
     },
@@ -16,10 +23,6 @@ pub enum Event<G: GameRules> {
         thread_id: usize,
         id: usize,
         result: Option<GameResult>,
-    },
-    Move {
-        thread_id: usize,
-        id: usize,
-        mv: G::MoveType,
+        samples: Vec<Sample>,
     },
 }

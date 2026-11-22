@@ -1,4 +1,4 @@
-use super::{AtaxxPrimary, MAX_PLY, search::alphabeta};
+use super::{AtaxxPrimary, MAX_PLY, order::MoveBuffer, search::alphabeta};
 use crate::searchstats::SearchStats;
 use crate::{primary::ataxx::INF_SCORE, search::SearchInfo};
 use games::{
@@ -21,6 +21,7 @@ pub fn primary(
     let start = Instant::now();
     let mut bestmove = None;
     state.killers = [None; MAX_PLY];
+    let mut buffers: Vec<MoveBuffer> = (0..MAX_PLY).map(|_| MoveBuffer::default()).collect();
     let mut stats = SearchStats::default();
     let max_depth = settings.depth.unwrap_or(MAX_DEPTH);
     let us = pos.get_turn();
@@ -62,6 +63,7 @@ pub fn primary(
                 state,
                 &mut pv,
                 false,
+                &mut buffers,
             )
         } else {
             alphabeta(
@@ -75,6 +77,7 @@ pub fn primary(
                 state,
                 &mut pv,
                 false,
+                &mut buffers,
             )
         };
 

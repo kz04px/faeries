@@ -1,4 +1,8 @@
-use super::{AtaxxPrimary, eval::eval, order::MovePicker};
+use super::{
+    AtaxxPrimary,
+    eval::eval,
+    order::{MoveBuffer, MovePicker},
+};
 use crate::{
     primary::ataxx::{INF_SCORE, MATE_SCORE, MAX_PLY},
     searchstats::SearchStats,
@@ -86,6 +90,7 @@ pub fn alphabeta(
     state: &mut AtaxxPrimary,
     pv: &mut Vec<AtaxxMove<7, 7>>,
     allow_null: bool,
+    buffers: &mut [MoveBuffer],
 ) -> i32 {
     debug_assert!(-INF_SCORE <= alpha);
     debug_assert!(alpha < beta);
@@ -154,6 +159,9 @@ pub fn alphabeta(
         return alpha;
     }
 
+    // Each ply has its own move buffer
+    let (buffer, child_buffers) = buffers.split_first_mut().expect("a buffer for every ply");
+
     // Null move pruning
     if allow_null
         && depth >= NULL_MOVE_MIN_DEPTH
@@ -173,6 +181,7 @@ pub fn alphabeta(
             state,
             &mut vec![],
             false,
+            child_buffers,
         );
         pos.undonull();
 
@@ -181,16 +190,20 @@ pub fn alphabeta(
         }
     }
 
-    let picker = MovePicker::new(
+    let mut picker = MovePicker::new(
         pos,
         tt_entry.and_then(|entry| entry.bestmove),
         state.killers[ply_from_root as usize],
+        buffer,
     );
 
     let has_captures =
         !(pos.get_them().adjacent() & pos.get_empty() & pos.get_us().reach2()).is_empty();
 
-    for (i, mv) in picker.enumerate() {
+    let mut moves_tried = 0;
+    while let Some(mv) = picker.next(buffer) {
+        let i = moves_tried;
+        moves_tried += 1;
         pos.makemove(&mv);
         let mut next_pv = vec![];
 
@@ -211,6 +224,7 @@ pub fn alphabeta(
                 state,
                 &mut next_pv,
                 true,
+                child_buffers,
             );
 
             // A reduced move that beats alpha is searched again at full depth
@@ -227,6 +241,7 @@ pub fn alphabeta(
                     state,
                     &mut next_pv,
                     true,
+                    child_buffers,
                 );
             }
         }
@@ -243,6 +258,7 @@ pub fn alphabeta(
                 state,
                 &mut next_pv,
                 true,
+                child_buffers,
             );
         }
         pos.undomove(&mv);

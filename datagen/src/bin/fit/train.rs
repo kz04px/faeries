@@ -53,6 +53,12 @@ fn loss_and_gradient(
     (loss / n, gradient.into_iter().map(|g| g / n).collect())
 }
 
+/// The mean squared error between `sigmoid(eval / k)` and the targets.
+#[must_use]
+pub fn loss(features: &Features, targets: &[f64], weights: &[f64], k: f64, threads: usize) -> f64 {
+    loss_and_gradient(features, targets, weights, k, threads).0
+}
+
 /// The mean squared error of the game results against `sigmoid(eval / k)` at the defaults.
 fn result_loss(features: &Features, results: &[f64], k: f64) -> f64 {
     let total: f64 = features
@@ -92,6 +98,41 @@ pub fn targets(scores: &[f64], results: &[f64], eval_weight: f64, k: f64) -> Vec
         .collect()
 }
 
+/// The weights as integers, with each group still adding up to zero: the ones that were
+/// rounded furthest the wrong way are moved by one until it does.
+#[must_use]
+pub fn round_to_integers(
+    weights: &[f64],
+    bounds: &[(f64, f64)],
+    groups: &[Vec<usize>],
+) -> Vec<i32> {
+    let mut out: Vec<i32> = weights.iter().map(|w| w.round() as i32).collect();
+    for members in groups {
+        let mut missing = -members.iter().map(|&j| out[j]).sum::<i32>();
+        let step = missing.signum();
+        // The elements that were rounded furthest against the direction of the move first
+        let mut order = members.clone();
+        order.sort_by(|&a, &b| {
+            let error = |j: usize| (weights[j] - out[j] as f64) * step as f64;
+            error(b).total_cmp(&error(a))
+        });
+        while missing != 0 {
+            let before = missing;
+            for &j in &order {
+                let moved = out[j] + step;
+                if missing != 0 && (moved as f64) >= bounds[j].0 && (moved as f64) <= bounds[j].1 {
+                    out[j] = moved;
+                    missing -= step;
+                }
+            }
+            if missing == before {
+                break;
+            }
+        }
+    }
+    out
+}
+
 pub struct Settings {
     pub k: f64,
     pub epochs: usize,
@@ -105,21 +146,56 @@ pub struct Fitted {
     pub end_loss: f64,
 }
 
-/// Adam on the whole data set, from `start`, with every weight kept inside its range. The
-/// step shrinks linearly to a tenth of `lr`.
+/// Move the weights of each group by one amount, as far as their ranges let them, until they
+/// add up to `sum`.
+fn hold_sums(weights: &mut [f64], bounds: &[(f64, f64)], groups: &[Vec<usize>], sum: f64) {
+    for members in groups {
+        for _ in 0..members.len() {
+            let missing = sum - members.iter().map(|&j| weights[j]).sum::<f64>();
+            if missing.abs() < 1e-9 {
+                break;
+            }
+            // Weights at the end of their range in the way of the move can't take any of it
+            let free: Vec<usize> = members
+                .iter()
+                .copied()
+                .filter(|&j| {
+                    if missing > 0.0 {
+                        weights[j] < bounds[j].1
+                    } else {
+                        weights[j] > bounds[j].0
+                    }
+                })
+                .collect();
+            if free.is_empty() {
+                break;
+            }
+            for &j in &free {
+                weights[j] =
+                    (weights[j] + missing / free.len() as f64).clamp(bounds[j].0, bounds[j].1);
+            }
+        }
+    }
+}
+
+/// Adam on the whole data set, from `start`, with every weight kept inside its range and the
+/// weights of each group of `groups` kept adding up to zero. `start` is moved to that first.
+/// The step shrinks linearly to a tenth of `lr`.
 pub fn fit(
     features: &Features,
     targets: &[f64],
     start: &[f64],
     bounds: &[(f64, f64)],
+    groups: &[Vec<usize>],
     settings: &Settings,
-    progress: impl Fn(usize, f64),
+    progress: impl Fn(usize, f64, &[f64]),
 ) -> Fitted {
     const BETA1: f64 = 0.9;
     const BETA2: f64 = 0.999;
     const EPSILON: f64 = 1e-8;
 
     let mut weights = start.to_vec();
+    hold_sums(&mut weights, bounds, groups, 0.0);
     let mut m = vec![0.0; weights.len()];
     let mut v = vec![0.0; weights.len()];
     let mut start_loss = 0.0;
@@ -130,7 +206,7 @@ pub fn fit(
         if epoch == 0 {
             start_loss = loss;
         }
-        progress(epoch, loss);
+        progress(epoch, loss, &weights);
 
         let t = (epoch + 1) as i32;
         let progress_done = epoch as f64 / settings.epochs as f64;
@@ -143,6 +219,7 @@ pub fn fit(
             weights[j] -= lr * m_hat / (v_hat.sqrt() + EPSILON);
             weights[j] = weights[j].clamp(bounds[j].0, bounds[j].1);
         }
+        hold_sums(&mut weights, bounds, groups, 0.0);
     }
 
     let (end_loss, _) =
@@ -209,8 +286,9 @@ mod tests {
             &targets,
             &[0.0, 0.0],
             &[(-500.0, 500.0), (-500.0, 500.0)],
+            &[],
             &settings,
-            |_, _| {},
+            |_, _, _| {},
         );
         assert!(fitted.end_loss < fitted.start_loss);
         assert!(
@@ -241,10 +319,58 @@ mod tests {
             &targets,
             &[0.0, 0.0],
             &[(-10.0, 10.0), (-10.0, 10.0)],
+            &[],
             &settings,
-            |_, _| {},
+            |_, _, _| {},
         );
         assert!(fitted.weights.iter().all(|w| w.abs() <= 10.0));
+    }
+
+    #[test]
+    fn group_sums_are_held() {
+        let (features, scores) = synthetic();
+        let targets = targets(&scores, &vec![0.5; scores.len()], 1.0, 100.0);
+        let settings = Settings {
+            k: 100.0,
+            epochs: 500,
+            lr: 2.0,
+            threads: 1,
+        };
+        let fitted = fit(
+            &features,
+            &targets,
+            &[10.0, 20.0],
+            &[(-500.0, 500.0), (-500.0, 500.0)],
+            &[vec![0, 1]],
+            &settings,
+            |_, _, _| {},
+        );
+        assert!((fitted.weights[0] + fitted.weights[1]).abs() < 1e-6);
+        assert!(fitted.end_loss < fitted.start_loss);
+    }
+
+    #[test]
+    fn held_sums_respect_ranges() {
+        let mut weights = [0.0, 9.0, 0.0];
+        hold_sums(
+            &mut weights,
+            &[(-10.0, 10.0), (-10.0, 10.0), (-10.0, 10.0)],
+            &[vec![0, 1, 2]],
+            30.0,
+        );
+        assert_eq!(weights, [10.0, 10.0, 10.0]);
+    }
+
+    #[test]
+    fn rounding_keeps_groups_at_zero() {
+        let weights = [1.4, 1.4, -2.8, 0.6, 0.6, -1.2];
+        let bounds = [(-10.0, 10.0); 6];
+        let out = round_to_integers(&weights, &bounds, &[vec![0, 1, 2], vec![3, 4, 5]]);
+        assert_eq!(out[..3].iter().sum::<i32>(), 0);
+        assert_eq!(out[3..].iter().sum::<i32>(), 0);
+        for (w, o) in weights.iter().zip(&out) {
+            assert!((w - *o as f64).abs() <= 1.0);
+        }
     }
 
     #[test]

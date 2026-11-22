@@ -1,4 +1,4 @@
-//! The `#[tunable(min = .., max = .., step = .. [, skip = [..]] [, nondecreasing | nonincreasing])]` attribute. See the
+//! The `#[tunable(min = .., max = .., step = .. [, skip = [..]] [, nondecreasing | nonincreasing] [, zero_mean])]` attribute. See the
 //! `tunable` crate.
 
 use proc_macro::TokenStream;
@@ -23,6 +23,8 @@ struct Args {
     nondecreasing: bool,
     // The tuner keeps the elements of an array in non-increasing order
     nonincreasing: bool,
+    // A fitter keeps the tuned elements adding up to zero
+    zero_mean: bool,
 }
 
 /// The value of an integer literal, possibly negated
@@ -88,7 +90,12 @@ fn parse_args(args: TokenStream2) -> syn::Result<Args> {
     let mut skip = Vec::new();
     let mut nondecreasing = false;
     let mut nonincreasing = false;
+    let mut zero_mean = false;
     for meta in metas {
+        if matches!(&meta, Meta::Path(p) if p.is_ident("zero_mean")) {
+            zero_mean = true;
+            continue;
+        }
         if matches!(&meta, Meta::Path(p) if p.is_ident("nondecreasing")) {
             nondecreasing = true;
             continue;
@@ -113,7 +120,7 @@ fn parse_args(args: TokenStream2) -> syn::Result<Args> {
         } else {
             return Err(syn::Error::new(
                 nv.path.span(),
-                "expected min, max, step, skip, nondecreasing or nonincreasing",
+                "expected min, max, step, skip, nondecreasing, nonincreasing or zero_mean",
             ));
         };
         literal(&nv.value)?;
@@ -133,6 +140,7 @@ fn parse_args(args: TokenStream2) -> syn::Result<Args> {
         skip,
         nondecreasing,
         nonincreasing,
+        zero_mean,
     })
 }
 
@@ -168,7 +176,7 @@ fn write_manifest(
     let list: Vec<String> = defaults.iter().map(i64::to_string).collect();
     let skip: Vec<String> = args.skip.iter().map(usize::to_string).collect();
     let line = format!(
-        "{{\"name\":\"{name}\",\"array\":{array},\"default\":[{}],\"min\":{},\"max\":{},\"step\":{},\"skip\":[{}],\"nondecreasing\":{},\"nonincreasing\":{},\"cols\":{},\"width\":{}}}\n",
+        "{{\"name\":\"{name}\",\"array\":{array},\"default\":[{}],\"min\":{},\"max\":{},\"step\":{},\"skip\":[{}],\"nondecreasing\":{},\"nonincreasing\":{},\"zero_mean\":{},\"cols\":{},\"width\":{}}}\n",
         list.join(","),
         args.min,
         args.max,
@@ -176,6 +184,7 @@ fn write_manifest(
         skip.join(","),
         args.nondecreasing,
         args.nonincreasing,
+        args.zero_mean,
         cols,
         width
     );
@@ -298,6 +307,12 @@ fn expand(args: TokenStream2, item: ItemConst) -> syn::Result<TokenStream2> {
             format!("`{ordering}` doesn't apply to a nested array"),
         ));
     }
+    if args.zero_mean && (!array || grid) {
+        return Err(syn::Error::new(
+            ident.span(),
+            "`zero_mean` only applies to an array that isn't nested",
+        ));
+    }
     if !args.skip.is_empty() && !array {
         return Err(syn::Error::new(
             ident.span(),
@@ -331,6 +346,7 @@ fn expand(args: TokenStream2, item: ItemConst) -> syn::Result<TokenStream2> {
     let vis = &item.vis;
     let (min, max, step) = (&args.min_expr, &args.max_expr, &args.step_expr);
     let skip = &args.skip;
+    let zero_mean = args.zero_mean;
     let checked: Vec<&Expr> = exprs
         .iter()
         .enumerate()
@@ -423,6 +439,7 @@ fn expand(args: TokenStream2, item: ItemConst) -> syn::Result<TokenStream2> {
                 #max,
                 #step,
                 &[#(#skip),*],
+                if #zero_mean { Some(#width) } else { None },
                 #cells,
             )
         }

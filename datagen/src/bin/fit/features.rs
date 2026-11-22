@@ -21,14 +21,17 @@ pub struct Data {
     pub results: Vec<f64>,
 }
 
-/// Read `<fen> | <score> | <result>` lines, skipping any that don't parse.
-pub fn load(path: &str) -> io::Result<(Data, usize)> {
+/// Read `<fen> | <score> | <result>` lines, skipping any that don't parse. Returns the
+/// positions, the number of lines that didn't parse, and the number left out for a score
+/// further from zero than `max_score`.
+pub fn load(path: &str, max_score: Option<f64>) -> io::Result<(Data, usize, usize)> {
     let mut data = Data {
         fens: Vec::new(),
         scores: Vec::new(),
         results: Vec::new(),
     };
     let mut skipped = 0;
+    let mut too_large = 0;
 
     for line in std::fs::read_to_string(path)?.lines() {
         if line.trim().is_empty() {
@@ -44,6 +47,7 @@ pub fn load(path: &str) -> io::Result<(Data, usize)> {
             _ => None,
         };
         match parsed {
+            Some((_, score, _)) if max_score.is_some_and(|m| score.abs() > m) => too_large += 1,
             Some((fen, score, result)) => {
                 data.fens.push(fen.to_string());
                 data.scores.push(score);
@@ -53,7 +57,7 @@ pub fn load(path: &str) -> io::Result<(Data, usize)> {
         }
     }
 
-    Ok((data, skipped))
+    Ok((data, skipped, too_large))
 }
 
 /// Every position's eval as a constant plus what each parameter adds to it, all for

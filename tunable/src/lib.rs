@@ -31,6 +31,13 @@
 //! let square = PST[1];
 //! ```
 //!
+//! `zero_mean` on an array tag asks a fitter to keep the tuned elements adding up to zero,
+//! separately for each integer of a [`Parts`] type. It is for a table that sits beside a
+//! constant of its own, such as piece-square values and a material value: a shift of the whole
+//! table does the same as a change to that constant, so the table's mean is kept at zero and the
+//! constant stays the one place that sets what a piece is worth. Each [`Param`] says which group
+//! of values adds up to zero, if any.
+//!
 //! The registry is filtered by module path, so one binary holding several games' search code
 //! only lists the tunables under the module path it's asked about.
 //!
@@ -370,6 +377,8 @@ pub struct Entry {
     step: i32,
     // Elements that are left at their defaults and not listed
     skip: &'static [usize],
+    // How many integers make up an element, if a fitter keeps the mean of each of them at zero
+    zero_mean: Option<usize>,
     cells: Cells,
 }
 
@@ -385,6 +394,7 @@ impl Entry {
         max: i32,
         step: i32,
         skip: &'static [usize],
+        zero_mean: Option<usize>,
         cells: Cells,
     ) -> Self {
         Self {
@@ -396,6 +406,7 @@ impl Entry {
             max,
             step,
             skip,
+            zero_mean,
             cells,
         }
     }
@@ -410,6 +421,8 @@ pub struct Param {
     pub min: i32,
     pub max: i32,
     pub step: i32,
+    /// Values that a fitter keeps adding up to zero share a group
+    pub mean_group: Option<usize>,
     /// More than one when the same code is compiled into several crates of one binary
     cells: Vec<Cell>,
 }
@@ -452,6 +465,7 @@ pub fn params(prefix: &str) -> Vec<Param> {
     let mut out: Vec<Param> = Vec::new();
     let mut previous: Option<(&str, &str)> = None;
     let mut first = 0;
+    let mut groups = 0;
     for e in entries {
         let kept = (0..e.cells.len())
             .filter(|i| !e.skip.contains(i))
@@ -464,6 +478,10 @@ pub fn params(prefix: &str) -> Vec<Param> {
         }
         previous = Some((e.module, e.name));
         first = out.len();
+        let first_group = groups;
+        if let Some(width) = e.zero_mean {
+            groups += width;
+        }
         for (i, cell) in kept {
             out.push(Param {
                 name: if e.array {
@@ -475,6 +493,7 @@ pub fn params(prefix: &str) -> Vec<Param> {
                 min: e.min,
                 max: e.max,
                 step: e.step,
+                mean_group: e.zero_mean.map(|width| first_group + i % width),
                 cells: vec![cell],
             });
         }
@@ -528,7 +547,7 @@ mod tests {
     static LIVE: Live<3> = Live::new([10, 20, 30]);
 
     inventory::submit! {
-        Entry::new("tunable::tests", "live", true, &[10, 20, 30], 0, 100, 5, &[2], Cells::Int(&LIVE.cells))
+        Entry::new("tunable::tests", "live", true, &[10, 20, 30], 0, 100, 5, &[2], None, Cells::Int(&LIVE.cells))
     }
 
     #[test]
@@ -567,7 +586,7 @@ mod tests {
     static LIVE_PAIRS: LiveParts<Pair, 2, 2> = LiveParts::new([Pair(1, 2), Pair(3, 4)]);
 
     inventory::submit! {
-        Entry::new("tunable::pair_tests", "pairs", true, &[1, 2, 3, 4], 0, 100, 5, &[], Cells::Group(&LIVE_PAIRS))
+        Entry::new("tunable::pair_tests", "pairs", true, &[1, 2, 3, 4], 0, 100, 5, &[], Some(2), Cells::Group(&LIVE_PAIRS))
     }
 
     #[test]
@@ -577,6 +596,13 @@ mod tests {
             .map(|p| p.name)
             .collect();
         assert_eq!(names, ["pairs_0", "pairs_1", "pairs_2", "pairs_3"]);
+
+        // One group for each integer of a pair
+        let groups: Vec<Option<usize>> = params("tunable::pair_tests")
+            .into_iter()
+            .map(|p| p.mean_group)
+            .collect();
+        assert_eq!(groups, [Some(0), Some(1), Some(0), Some(1)]);
 
         assert_eq!(LIVE_PAIRS[1], Pair(3, 4));
         assert!(set("tunable::pair_tests", "pairs_3", "44"));

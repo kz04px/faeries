@@ -26,6 +26,8 @@ pub trait GameSearch: Default {
 
     /// The static eval this search is built on, from the side to move's view, or `None` if the
     /// game has no tunable eval. A fitter uses it to find what each tunable adds to the eval.
+    // Only datagen's fitter calls it, and the engine binary compiles this module itself
+    #[allow(dead_code)]
     #[must_use]
     fn eval(_pos: &Self::Game) -> Option<i32> {
         None

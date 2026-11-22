@@ -3,6 +3,8 @@ use std::{env, fmt::Display};
 
 pub struct Args {
     pub data_path: String,
+    /// Positions the fit doesn't train on, to report the loss on.
+    pub test_path: Option<String>,
     pub game: Games,
     /// How much of the target is the search score rather than the game result, from 0 to 1.
     pub eval_weight: f64,
@@ -12,6 +14,12 @@ pub struct Args {
     /// Adam's step in parameter units.
     pub lr: f64,
     pub threads: usize,
+    /// Start every value that isn't held at zero instead of at its default.
+    pub zero_init: bool,
+    /// Positions whose search score is further from zero than this are left out.
+    pub max_score: Option<f64>,
+    /// Tunables left at their defaults, by name: `hole_penalties` holds every element of it.
+    pub hold: Vec<String>,
     pub output_path: Option<String>,
 }
 
@@ -64,6 +72,7 @@ pub fn parse_string(line: &str) -> Result<Args, ArgsError> {
 #[must_use]
 pub fn parse(words: &[&str]) -> Result<Args, ArgsError> {
     let mut data_path = String::new();
+    let mut test_path = None;
     let mut game = None;
     let mut eval_weight = 0.5;
     let mut k = None;
@@ -71,11 +80,15 @@ pub fn parse(words: &[&str]) -> Result<Args, ArgsError> {
     let mut lr = 1.0;
     let mut threads = 1;
     let mut output_path = None;
+    let mut hold = Vec::new();
+    let mut zero_init = false;
+    let mut max_score = None;
     let mut iter = words.iter();
 
     while let Some(word) = iter.next() {
         match *word {
             "--data" => data_path = value(&mut iter, word)?,
+            "--test" => test_path = Some(value(&mut iter, word)?),
             "--game" => {
                 let name: String = value(&mut iter, word)?;
                 game = match games::parse_game_name(&name) {
@@ -88,6 +101,15 @@ pub fn parse(words: &[&str]) -> Result<Args, ArgsError> {
             "--epochs" => epochs = value(&mut iter, word)?,
             "--lr" => lr = value(&mut iter, word)?,
             "--threads" => threads = value(&mut iter, word)?,
+            "--zero-init" => zero_init = true,
+            "--max-score" => max_score = Some(value(&mut iter, word)?),
+            "--hold" => {
+                let names: String = value(&mut iter, word)?;
+                hold = names.split(',').map(str::to_owned).collect();
+                if hold.iter().any(|name| name.is_empty()) {
+                    return error("hold takes names separated by commas");
+                }
+            }
             "--output" => output_path = Some(value(&mut iter, word)?),
             _ => return error(format!("Unrecognised word: '{}'", word)),
         }
@@ -111,18 +133,25 @@ pub fn parse(words: &[&str]) -> Result<Args, ArgsError> {
     if epochs < 1 {
         return error("epochs must be >= 1");
     }
+    if max_score.is_some_and(|m| m <= 0.0 || !f64::is_finite(m)) {
+        return error("max-score must be > 0");
+    }
     if threads < 1 {
         return error("threads must be >= 1");
     }
 
     Ok(Args {
         data_path,
+        test_path,
         game,
         eval_weight,
         k,
         epochs,
         lr,
         threads,
+        zero_init,
+        max_score,
+        hold,
         output_path,
     })
 }
@@ -134,23 +163,29 @@ mod tests {
     #[test]
     fn defaults() {
         let args = parse_string("--data d --game ataxx").unwrap();
+        assert_eq!(args.test_path, None);
         assert_eq!(args.eval_weight, 0.5);
         assert_eq!(args.k, None);
+        assert!(!args.zero_init);
         assert_eq!(args.threads, 1);
     }
 
     #[test]
     fn example() {
         let args = parse_string(
-            "--data d --game ataxx --eval-weight 0.25 --k 120 --epochs 10 --lr 2 --threads 4 --output o",
+            "--data d --test t --game ataxx --eval-weight 0.25 --k 120 --epochs 10 --lr 2 --threads 4 --hold a,b_c --max-score 1000 --zero-init --output o",
         )
         .unwrap();
         assert_eq!(args.game, Games::Ataxx);
+        assert_eq!(args.test_path.as_deref(), Some("t"));
         assert_eq!(args.eval_weight, 0.25);
         assert_eq!(args.k, Some(120.0));
         assert_eq!(args.epochs, 10);
         assert_eq!(args.lr, 2.0);
         assert_eq!(args.threads, 4);
+        assert_eq!(args.hold, ["a", "b_c"]);
+        assert!(args.zero_init);
+        assert_eq!(args.max_score, Some(1000.0));
         assert_eq!(args.output_path.as_deref(), Some("o"));
     }
 
@@ -171,6 +206,11 @@ mod tests {
             "--data d --game ataxx --epochs 0",
             "--data d --game ataxx --threads 0",
             "--data d --game ataxx extra",
+            "--data d --game ataxx --test",
+            "--data d --game ataxx --hold",
+            "--data d --game ataxx --max-score",
+            "--data d --game ataxx --max-score 0",
+            "--data d --game ataxx --hold a,,b",
         ];
 
         for line in tests {

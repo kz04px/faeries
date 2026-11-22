@@ -29,6 +29,9 @@ pub trait Engine: Default {
 
     fn newgame(&mut self);
 
+    /// The game's tunable static eval for the side to move, if it has one.
+    fn eval(pos: &Self::Game) -> Option<i32>;
+
     fn set_search(&mut self, name: &str) -> Result<(), String>;
 
     fn search(
@@ -48,6 +51,10 @@ impl<G: UgiGame + Eval, S: GameSearch<Game = G>, X: ExtraOptions> Engine for Gam
 
     fn newgame(&mut self) {
         self.game_search.newgame();
+    }
+
+    fn eval(pos: &G) -> Option<i32> {
+        S::eval(pos)
     }
 
     fn set_search(&mut self, name: &str) -> Result<(), String> {

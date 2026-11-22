@@ -1,6 +1,6 @@
 use crate::args::Args;
-use crate::engine::{Engine, MATE_CP};
 use crate::events::{Event, Sample};
+use datagen::engine::{Engine, MATE_CP};
 use faeries::prng::XorshiftGenerator;
 use games::gamerules::{GameResult, GameRules};
 use games::general::side::Side;

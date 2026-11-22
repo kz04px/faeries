@@ -7,3 +7,17 @@ edition = "2024"
 games = { git = "https://github.com/kz04px/games", version = "0.1.0" }
 faeries = {path = "../faeries"}
 protocols = {path = "../protocols"}
+tunable = { path = "../tunable" }
+
+[features]
+# Makes the tunables live, which the fitter needs
+tune = ["faeries/tune"]
+
+[[bin]]
+name = "datagen"
+path = "src/main.rs"
+
+[[bin]]
+name = "fit"
+path = "src/bin/fit/main.rs"
+required-features = ["tune"]

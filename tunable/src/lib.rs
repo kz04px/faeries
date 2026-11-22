@@ -420,14 +420,17 @@ impl Param {
         self.cells[0].get(self.default)
     }
 
-    fn store(&self, value: i32) {
+    /// Set the value without clamping it to its range, for a fitter that probes outside it
+    ///
+    /// Every call leaks a little memory, as with [`set`].
+    pub fn set_unclamped(&self, value: i32) {
         for cell in &self.cells {
             cell.store(value);
         }
     }
 
     /// Back to the default
-    fn restore(&self) {
+    pub fn restore(&self) {
         for cell in &self.cells {
             cell.restore();
         }
@@ -486,7 +489,7 @@ pub fn set(prefix: &str, name: &str, value: &str) -> bool {
         return false;
     };
     if let Ok(v) = value.parse::<i32>() {
-        param.store(v.clamp(param.min, param.max));
+        param.set_unclamped(v.clamp(param.min, param.max));
     }
     true
 }

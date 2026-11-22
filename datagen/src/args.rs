@@ -1,4 +1,3 @@
-use games::Games;
 use std::{env, fmt::Display, num::ParseIntError};
 
 pub struct Args {
@@ -125,17 +124,9 @@ pub fn parse(words: &[&str]) -> Result<Args, ArgsError> {
             }
             // Game
             (&"--game", Some(name)) => {
-                parsed.game = match name {
-                    &&"ataxx" => Some(Games::Ataxx),
-                    &&"chess" => Some(Games::Chess),
-                    &&"connect4" => Some(Games::Connect4),
-                    &&"droptaxx" => Some(Games::Droptaxx),
-                    &&"gomoku" => Some(Games::Gomoku),
-                    &&"isolation" => Some(Games::Isolation),
-                    &&"pijersi" => Some(Games::Pijersi),
-                    &&"quoridor" => Some(Games::Quoridor),
-                    &&"tak" => Some(Games::Tak),
-                    _ => {
+                parsed.game = match games::parse_game_name(name) {
+                    Some(game) => Some(game),
+                    None => {
                         return Err(ArgsError {
                             msg: "Unrecognised game name".to_string(),
                         });
@@ -208,6 +199,7 @@ pub fn parse(words: &[&str]) -> Result<Args, ArgsError> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use games::Games;
 
     #[test]
     fn default() {

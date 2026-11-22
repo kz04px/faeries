@@ -24,6 +24,13 @@ pub trait GameSearch: Default {
         &[]
     }
 
+    /// The static eval this search is built on, from the side to move's view, or `None` if the
+    /// game has no tunable eval. A fitter uses it to find what each tunable adds to the eval.
+    #[must_use]
+    fn eval(_pos: &Self::Game) -> Option<i32> {
+        None
+    }
+
     /// The best move for the named search, or `None` if this game doesn't handle that name.
     #[must_use]
     fn search(

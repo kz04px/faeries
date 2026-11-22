@@ -1,11 +1,10 @@
 mod args;
-mod engine;
 mod events;
 mod fens;
 mod play;
 
 use crate::args::Args;
-use engine::Engine;
+use datagen::engine::Engine;
 use events::Event;
 use faeries::state::{
     AtaxxState, ChessState, Connect4State, DroptaxxState, GomokuState, IsolationState,

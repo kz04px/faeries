@@ -1,7 +1,13 @@
+use super::butterfly::ButterflyHistory;
 use games::{
     ataxx::{AtaxxMove, AtaxxPosition},
-    general::bitboard::Bitboard,
+    gamerules::GameRules,
+    general::{bitboard::Bitboard, side::Side},
 };
+
+/// Larger than any spread of butterfly values, so that they only separate moves that change
+/// the same number of pieces
+const CHANGE_WEIGHT: i32 = 2 * ButterflyHistory::MAX + 1;
 
 /// No position has more than 194 moves
 const MAX_MOVES: usize = 200;
@@ -36,7 +42,7 @@ enum Stage {
 /// before it have all been tried
 ///
 /// The table move comes first, then the killer, then the moves that change at least two
-/// pieces, then the rest. Each group is handed out most pieces changed first.
+/// pieces, then the rest. Each group is handed out most pieces changed first, and among those the ones that have caused the most cutoffs.
 pub struct MovePicker {
     stage: Stage,
     ttmove: Option<AtaxxMove<7, 7>>,
@@ -44,6 +50,7 @@ pub struct MovePicker {
     us: Bitboard<7, 7>,
     them: Bitboard<7, 7>,
     empty: Bitboard<7, 7>,
+    side: Side,
     len: usize,
     idx: usize,
 }
@@ -64,6 +71,7 @@ impl MovePicker {
             us,
             them,
             empty,
+            side: pos.get_turn(),
             len: 0,
             idx: 0,
         };
@@ -107,14 +115,14 @@ impl MovePicker {
     ///
     /// A single move changes one more piece than the enemy pieces next to its target (it adds
     /// its own), and a double move changes exactly that many.
-    fn generate(&mut self, buffer: &mut MoveBuffer, big: bool) {
+    fn generate(&mut self, buffer: &mut MoveBuffer, butterfly: &ButterflyHistory, big: bool) {
         self.len = 0;
         self.idx = 0;
 
         let mut add = |picker: &mut Self, mv: AtaxxMove<7, 7>, change: i32| {
             if (change >= 2) == big && !picker.is_tried(mv) {
                 buffer.moves[picker.len] = mv;
-                buffer.scores[picker.len] = change;
+                buffer.scores[picker.len] = change * CHANGE_WEIGHT + butterfly.get(picker.side, mv);
                 picker.len += 1;
             }
         };
@@ -132,7 +140,11 @@ impl MovePicker {
         debug_assert!(self.len <= MAX_MOVES);
     }
 
-    pub fn next(&mut self, buffer: &mut MoveBuffer) -> Option<AtaxxMove<7, 7>> {
+    pub fn next(
+        &mut self,
+        buffer: &mut MoveBuffer,
+        butterfly: &ButterflyHistory,
+    ) -> Option<AtaxxMove<7, 7>> {
         loop {
             match self.stage {
                 Stage::TtMove => {
@@ -154,7 +166,7 @@ impl MovePicker {
                 }
                 Stage::GenerateBig => {
                     self.stage = Stage::Big;
-                    self.generate(buffer, true);
+                    self.generate(buffer, butterfly, true);
                 }
                 Stage::Big | Stage::Small => {
                     if self.idx < self.len {
@@ -174,7 +186,7 @@ impl MovePicker {
 
                     if self.stage == Stage::Big {
                         self.stage = Stage::Small;
-                        self.generate(buffer, false);
+                        self.generate(buffer, butterfly, false);
                     } else {
                         self.stage = Stage::Done;
                         self.len = 0;
@@ -212,9 +224,10 @@ mod tests {
         killer: Option<AtaxxMove<7, 7>>,
     ) -> Vec<AtaxxMove<7, 7>> {
         let mut buffer = MoveBuffer::default();
+        let butterfly = ButterflyHistory::default();
         let mut picker = MovePicker::new(pos, ttmove, killer, &mut buffer);
         let mut out = vec![];
-        while let Some(mv) = picker.next(&mut buffer) {
+        while let Some(mv) = picker.next(&mut buffer, &butterfly) {
             out.push(mv);
         }
         out

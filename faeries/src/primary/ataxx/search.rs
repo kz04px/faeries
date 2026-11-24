@@ -57,6 +57,8 @@ fn score_from_tt(score: i32, ply_from_root: i32) -> i32 {
 }
 
 const FUTILITY_MARGINS: [i32; 4] = [800, 800, 1600, 1600];
+/// How many of the moves tried at a node are remembered to be penalised on a cutoff
+const MAX_TRIED: usize = 32;
 const LATE_MOVE_PRUNING_MOVES: usize = 15;
 
 /// Whether a move lands next to an enemy piece.
@@ -200,8 +202,10 @@ pub fn alphabeta(
     let has_captures =
         !(pos.get_them().adjacent() & pos.get_empty() & pos.get_us().reach2()).is_empty();
 
+    let side = pos.get_turn();
+    let mut tried = [AtaxxMove::Pass; MAX_TRIED];
     let mut moves_tried = 0;
-    while let Some(mv) = picker.next(buffer) {
+    while let Some(mv) = picker.next(buffer, &state.butterfly) {
         let i = moves_tried;
         moves_tried += 1;
         pos.makemove(&mv);
@@ -280,7 +284,13 @@ pub fn alphabeta(
 
         if alpha >= beta {
             state.killers[ply_from_root as usize] = Some(mv);
+            state
+                .butterfly
+                .update(side, depth, mv, &tried[..(moves_tried - 1).min(MAX_TRIED)]);
             break;
+        }
+        if moves_tried <= MAX_TRIED {
+            tried[moves_tried - 1] = mv;
         }
 
         // Late move pruning: if captures exist, stop at the first quiet move searched

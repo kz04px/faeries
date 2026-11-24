@@ -1,3 +1,4 @@
+pub mod butterfly;
 pub mod correction;
 pub mod eval;
 pub mod order;
@@ -7,6 +8,7 @@ pub mod search;
 use super::GameSearch;
 use crate::hashtable::HashTable;
 use crate::search::SearchInfo;
+use butterfly::ButterflyHistory;
 use correction::CorrectionHistory;
 use games::ataxx::{AtaxxMove, AtaxxPosition};
 use protocols::ugi::options::Spin;
@@ -23,6 +25,7 @@ const TUNABLE_PATH: &str = module_path!();
 pub struct AtaxxPrimary {
     pub tt: HashTable<TTEntry>,
     pub correction: CorrectionHistory,
+    pub butterfly: ButterflyHistory,
     pub killers: [Option<AtaxxMove<7, 7>>; MAX_PLY],
     pub hash: Spin<usize>,
 }
@@ -32,6 +35,7 @@ impl Default for AtaxxPrimary {
         Self {
             tt: HashTable::new(0),
             correction: CorrectionHistory::default(),
+            butterfly: ButterflyHistory::default(),
             killers: [None; MAX_PLY],
             hash: Spin {
                 name: "hash".to_owned(),
@@ -53,6 +57,7 @@ impl GameSearch for AtaxxPrimary {
     fn newgame(&mut self) {
         self.tt.clear();
         self.correction.clear();
+        self.butterfly.clear();
         self.killers = [None; MAX_PLY];
     }
 
